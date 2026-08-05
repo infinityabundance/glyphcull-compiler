@@ -33,6 +33,10 @@ resolver = "2"
 members = [
     "crates/glyphcull-format",
     "crates/glyphcull-cli",
+    "crates/glyphcull-semantic",
+    "crates/glyphcull-chunk",
+    "crates/glyphcull-atlas",
+    "crates/glyphcull-pipeline",
 ]
 
 [workspace.package]

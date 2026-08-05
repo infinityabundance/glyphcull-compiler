@@ -1,0 +1,20 @@
+[package]
+name = "glyphcull-semantic"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "The GlyphCull compiler's Semantic Graph: meaning-level IR produced by the HTML and Markdown front ends."
+keywords = ["document", "semantic", "compiler", "html", "markdown"]
+categories = ["parser-implementations", "encoding"]
+
+[lints]
+workspace = true
+
+[dependencies]
+html5ever = "0.39"
+tendril = "0.4"
+pulldown-cmark = "0.12"
+unicode-normalization = "0.1"

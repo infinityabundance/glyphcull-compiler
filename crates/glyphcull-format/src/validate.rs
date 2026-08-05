@@ -558,8 +558,10 @@ fn allowed_child(parent: ChunkKind, child: ChunkKind) -> bool {
                 | Hr
                 | Caption
         ),
-        Heading1 | Heading2 | Heading3 | Heading4 | Heading5 | Heading6 | Paragraph | Quote
-        | Caption => child.is_inline(),
+        Heading1 | Heading2 | Heading3 | Heading4 | Heading5 | Heading6 | Paragraph | Caption => {
+            child.is_inline()
+        }
+        Quote => child.is_block() || child.is_inline(),
         List => child == ListItem,
         ListItem => matches!(
             child,

@@ -1,0 +1,23 @@
+[package]
+name = "glyphcull-pipeline"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "The GlyphCull compiler pipeline: HTML/Markdown to compiled .cull packages, deterministic end to end."
+keywords = ["document", "compiler", "pipeline", "deterministic"]
+categories = ["encoding", "parser-implementations"]
+
+[lints]
+workspace = true
+
+[dependencies]
+glyphcull-format = { version = "0.1.0", path = "../glyphcull-format" }
+glyphcull-semantic = { version = "0.1.0", path = "../glyphcull-semantic" }
+glyphcull-chunk = { version = "0.1.0", path = "../glyphcull-chunk" }
+glyphcull-atlas = { version = "0.1.0", path = "../glyphcull-atlas" }
+sha2 = "0.10"
+png = "0.17"
+jpeg-decoder = "0.3"

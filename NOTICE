@@ -1,0 +1,38 @@
+GlyphCull Compiler — Third-Party Notices
+=========================================
+
+Bundled fonts (assets/fonts/)
+----------------------------
+
+The compiler bundles the Noto Sans font family (Regular, Bold, Italic,
+BoldItalic) from the Noto Project (https://github.com/notofonts/latin-greek-cyrillic),
+version 2.015, for default glyph atlas generation.
+
+- Copyright 2022 The Noto Project Authors
+  (https://github.com/notofonts/latin-greek-cyrillic)
+- Licensed under the SIL Open Font License, Version 1.1
+  (see assets/fonts/OFL.txt).
+
+The fonts are embedded (in the form of generated MSDF atlases) into compiled
+`.cull` packages at build time, which the OFL permits without restriction.
+
+Fetch reproducibility: scripts/fetch-fonts.sh downloads the exact release
+archive; the committed checksums (scripts/font-checksums.sha256) verify the
+downloaded files byte-for-byte.
+
+Rust crates
+-----------
+
+This repository's crates depend on the following crates from crates.io
+(licenses as declared by their authors):
+
+- flate2 (MIT OR Apache-2.0) — zlib compression
+- sha2 (MIT OR Apache-2.0) — SHA-256 for SEAL and digests
+- proptest (MIT OR Apache-2.0) — dev: property tests
+- unicode-normalization (MIT OR Apache-2.0) — NFC normalization
+- pulldown-cmark (MIT) — Markdown parsing
+- html5ever (MIT OR Apache-2.0) — HTML5 parsing
+- tendril (MIT OR Apache-2.0) — HTML token streams
+- ttf-parser (MIT OR Apache-2.0) — font parsing
+- png (MIT OR Apache-2.0) — PNG decode at compile time
+- jpeg-decoder (MIT OR Apache-2.0) — JPEG decode at compile time

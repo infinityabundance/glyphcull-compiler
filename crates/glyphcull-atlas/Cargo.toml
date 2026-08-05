@@ -1,0 +1,18 @@
+[package]
+name = "glyphcull-atlas"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "The GlyphCull compiler's MSDF glyph atlas generator: exact signed-distance computation, edge coloring, packing."
+keywords = ["glyph", "msdf", "sdf", "font", "atlas"]
+categories = ["graphics", "encoding"]
+
+[lints]
+workspace = true
+
+[dependencies]
+glyphcull-format = { version = "0.1.0", path = "../glyphcull-format" }
+ttf-parser = "0.24"

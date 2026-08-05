@@ -1,0 +1,18 @@
+[package]
+name = "glyphcull-chunk"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "The GlyphCull compiler's Chunk Graph: renderable units and the deterministic transform pipeline."
+keywords = ["document", "chunk", "compiler", "render"]
+categories = ["encoding"]
+
+[lints]
+workspace = true
+
+[dependencies]
+glyphcull-format = { version = "0.1.0", path = "../glyphcull-format" }
+glyphcull-semantic = { version = "0.1.0", path = "../glyphcull-semantic" }
