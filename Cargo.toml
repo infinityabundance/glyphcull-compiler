@@ -1,3 +1,33 @@
+# The `glyphcull` umbrella crate AND the compiler workspace manifest.
+#
+# `glyphcull` is the single entry point for the compiler workspace: it re-exports
+# the format contract (`glyphcull-format`) and the CLI (`glyphcull-cli`), and will
+# re-export the pipeline crates (`glyphcull-semantic`, `glyphcull-chunk`,
+# `glyphcull-atlas`) as Phase 2 lands.
+
+[package]
+name = "glyphcull"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "GlyphCull — a compiled GPU document runtime. Umbrella crate for the compiler workspace: the .cull format contract, the `cull` CLI, and the compile pipeline."
+keywords = ["document", "format", "gpu", "runtime", "compiled", "compiler"]
+categories = ["encoding", "parser-implementations", "command-line-utilities"]
+readme = "README.md"
+# The umbrella package is just the re-export surface; the pipeline crates are
+# separate packages on crates.io.
+exclude = ["crates/**", "docs/**", "scripts/**", "tests/**", ".github/**"]
+
+[dependencies]
+glyphcull-format = { version = "0.1.0", path = "crates/glyphcull-format" }
+glyphcull-cli = { version = "0.1.0", path = "crates/glyphcull-cli" }
+
+[lints]
+workspace = true
+
 [workspace]
 resolver = "2"
 members = [
@@ -11,6 +41,7 @@ edition = "2021"
 rust-version = "1.85"
 license = "Apache-2.0"
 authors = ["GlyphCull contributors"]
+repository = "https://github.com/infinityabundance/glyphcull-compiler"
 
 # Lint policy: correctness-focused and security-critical lints are denies;
 # stylistic groups (`pedantic`, `nursery`) are deliberately not enabled because

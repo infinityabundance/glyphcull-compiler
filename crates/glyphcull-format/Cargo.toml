@@ -7,6 +7,8 @@ license.workspace = true
 description = "Reference implementation of the .cull document package format (container, section codecs, validation)."
 keywords = ["document", "format", "gpu", "runtime", "compiled"]
 categories = ["encoding", "parser-implementations"]
+repository.workspace = true
+authors.workspace = true
 
 [lints]
 workspace = true

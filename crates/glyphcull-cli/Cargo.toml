@@ -4,14 +4,17 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-description = "The `cull` command-line tool: compile, validate, and inspect .cull packages."
-keywords = ["document", "format", "cli", "compiler"]
+authors.workspace = true
+repository.workspace = true
+description = "The `cull` command-line tool: compile, validate, and inspect .cull packages (GlyphCull compiled GPU document runtime)."
+keywords = ["document", "format", "cli", "compiler", "gpu"]
+categories = ["command-line-utilities", "encoding"]
 
 [lints]
 workspace = true
 
 [dependencies]
-glyphcull-format = { path = "../glyphcull-format" }
+glyphcull-format = { version = "0.1.0", path = "../glyphcull-format" }
 
 [[bin]]
 name = "cull"

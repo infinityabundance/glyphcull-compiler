@@ -154,6 +154,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "glyphcull"
+version = "0.1.0"
+dependencies = [
+ "glyphcull-cli",
+ "glyphcull-format",
+]
+
+[[package]]
 name = "glyphcull-cli"
 version = "0.1.0"
 dependencies = [
