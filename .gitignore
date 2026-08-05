@@ -1,0 +1,15 @@
+# Compiler workspace
+/target
+**/*.rs.bk
+Cargo.lock.tmp
+*.swp
+*.swo
+
+# Local scratch (never committed)
+/scratch/
+*.cull.tmp
+
+# Editor
+.idea/
+.vscode/
+*.iml

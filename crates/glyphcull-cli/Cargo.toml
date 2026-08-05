@@ -1,0 +1,18 @@
+[package]
+name = "glyphcull-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "The `cull` command-line tool: compile, validate, and inspect .cull packages."
+keywords = ["document", "format", "cli", "compiler"]
+
+[lints]
+workspace = true
+
+[dependencies]
+glyphcull-format = { path = "../glyphcull-format" }
+
+[[bin]]
+name = "cull"
+path = "src/main.rs"
