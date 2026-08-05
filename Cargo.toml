@@ -14,7 +14,7 @@ license.workspace = true
 authors.workspace = true
 repository.workspace = true
 description = "GlyphCull — a compiled GPU document runtime. Umbrella crate for the compiler workspace: the .cull format contract, the `cull` CLI, and the compile pipeline."
-keywords = ["document", "format", "gpu", "runtime", "compiled", "compiler"]
+keywords = ["document", "format", "gpu", "runtime", "compiled"]
 categories = ["encoding", "parser-implementations", "command-line-utilities"]
 readme = "README.md"
 # The umbrella package is just the re-export surface; the pipeline crates are
