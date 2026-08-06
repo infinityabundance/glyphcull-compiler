@@ -994,7 +994,7 @@ mod tests {
             .flat_map(|set| set.iter().copied())
             .collect();
         assert!(all.contains(&0x2022), "disc marker glyph present");
-        assert!(all.contains(&b'.' as u32), "decimal separator present");
+        assert!(all.contains(&(b'.' as u32)), "decimal separator present");
         for digit in 0_u32..10 {
             let cp = u32::from(b'0') + digit;
             assert!(all.contains(&cp), "digit {cp} present for counters");
