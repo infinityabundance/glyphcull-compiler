@@ -8,6 +8,7 @@ on:
 env:
   CARGO_TERM_COLOR: always
   RUSTFLAGS: "-D warnings"
+  RUSTDOCFLAGS: "-D warnings"
 
 jobs:
   gate:
@@ -29,4 +30,6 @@ jobs:
       - name: Bench smoke
         run: cargo bench --all -- --test
       - name: Golden byte-exactness
-        run: ./scripts/check-golden.sh
+        run: |
+          ./scripts/check-golden.sh
+          ./scripts/check-goldens.sh
