@@ -28,7 +28,7 @@ fn golden_package_is_byte_exact() {
         ..CompileOptions::default()
     };
     let (package, report) = compile(GOLDEN_MD, InputKind::Markdown, &options).expect("compile");
-    assert_eq!(report.chunk_count, 18);
+    assert_eq!(report.chunk_count, 22);
     assert_eq!(report.atlas_count, 3);
     assert_eq!(
         package, GOLDEN,

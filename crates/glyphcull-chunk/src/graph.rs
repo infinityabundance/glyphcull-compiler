@@ -140,6 +140,52 @@ impl Builder {
         }
     }
 
+    /// Emit a node's children with block semantics (SPEC.md §2.2): block
+    /// children emit directly; runs of inline children are wrapped in an
+    /// implicit `paragraph` chunk because block containers (list items, table
+    /// cells) hold blocks — runs nest only under paragraphs/headings/captions.
+    fn emit_block_children(
+        &mut self,
+        node: &SemanticNode,
+        parent_style: &ResolvedStyle,
+        ancestors: &[&SemanticNode],
+    ) {
+        let chain = Self::chain(node, ancestors);
+        let mut inline: Vec<&SemanticNode> = Vec::new();
+        for child in &node.children {
+            if child.kind.is_block() {
+                if !inline.is_empty() {
+                    self.emit_implicit_paragraph(&inline, parent_style, &chain);
+                    inline.clear();
+                }
+                self.emit_node(child, parent_style, &chain);
+            } else {
+                inline.push(child);
+            }
+        }
+        if !inline.is_empty() {
+            self.emit_implicit_paragraph(&inline, parent_style, &chain);
+        }
+    }
+
+    /// Emit an implicit paragraph chunk wrapping inline nodes (the block
+    /// container's style; no semantic node exists for the wrapper).
+    fn emit_implicit_paragraph(
+        &mut self,
+        inline: &[&SemanticNode],
+        parent_style: &ResolvedStyle,
+        ancestors: &[&SemanticNode],
+    ) {
+        // The wrapper carries the container's resolved style (the container's
+        // own cascade); the inline nodes resolve their own styles underneath.
+        let style_id = self.intern_style((*parent_style).clone());
+        self.push(ChunkKind::Paragraph, inline[0], style_id, 0);
+        for child in inline {
+            self.emit_inline_node(parent_style, child, ancestors);
+        }
+        self.pop();
+    }
+
     /// Emit chunks for one semantic node.
     fn emit_node(
         &mut self,
@@ -188,7 +234,19 @@ impl Builder {
                 self.pop();
             }
             SemanticKind::CodeBlock => {
-                self.push(ChunkKind::CodeBlock, node, style_id, 0);
+                // The verbatim code text is content (SPEC.md §2.4): code chunks
+                // carry their text payload directly (no inline children).
+                let face = FaceKey {
+                    family: style.font_family.clone(),
+                    weight: style.font_weight,
+                    italic: style.italic,
+                };
+                let payload_index = if node.text.is_empty() {
+                    0
+                } else {
+                    self.text_payload(&node.text, face)
+                };
+                self.push(ChunkKind::CodeBlock, node, style_id, payload_index);
                 self.pop();
             }
             SemanticKind::OrderedList | SemanticKind::UnorderedList => {
@@ -232,8 +290,9 @@ impl Builder {
                         data,
                     });
                 }
-                // Cell content is block-level.
-                self.emit_children(node, &style, &chain);
+                // Cell content is block-level: inline content wraps in an
+                // implicit paragraph (SPEC.md §2.2).
+                self.emit_block_children(node, &style, &chain);
                 self.pop();
             }
             SemanticKind::Image => {
@@ -267,12 +326,28 @@ impl Builder {
                 self.pop();
             }
             SemanticKind::Transparent => {
-                self.emit_children(node, &style, &chain);
+                // Transparent nodes carry text or children (the unified inline
+                // model). At block level (list items, table cells, quotes) a
+                // text-bearing transparent node is inline content: it wraps in
+                // an implicit paragraph (SPEC.md §2.2 — block containers hold
+                // blocks). Containers recurse with block semantics.
+                if !node.text.is_empty() {
+                    let chain = Self::chain(node, ancestors);
+                    self.push(ChunkKind::Paragraph, node, style_id, 0);
+                    self.emit_inline_node(&style, node, &chain);
+                    self.pop();
+                } else {
+                    self.emit_block_children(node, &style, ancestors);
+                }
             }
             _ => {
-                // A stray inline node at block level: emit through the inline
-                // machinery (its ancestors are this node's ancestors).
-                self.emit_inline_node(&style, node, ancestors);
+                // A stray inline node at block level (emphasis, strong, code,
+                // soft break, …): wrap it in an implicit paragraph so the chunk
+                // graph obeys the block-container shape (SPEC.md §2.2).
+                let chain = Self::chain(node, ancestors);
+                self.push(ChunkKind::Paragraph, node, style_id, 0);
+                self.emit_inline_node(&style, node, &chain);
+                self.pop();
             }
         }
     }
@@ -298,13 +373,9 @@ impl Builder {
                 data: (value as u32).to_le_bytes().to_vec(),
             });
         }
-        for child in &node.children {
-            if child.kind.is_block() || child.kind == SemanticKind::Transparent {
-                self.emit_node(child, &style, &chain);
-            } else {
-                self.emit_inline_node(&style, child, &chain);
-            }
-        }
+        // Item content is block-level: inline text wraps in an implicit
+        // paragraph (SPEC.md §2.2 — runs nest only under block chunks).
+        self.emit_block_children(node, &style, &chain);
         self.pop();
     }
 
@@ -774,6 +845,111 @@ mod tests {
             .map(|e| u32::from_le_bytes(e.data[..4].try_into().expect("len")))
             .collect();
         assert_eq!(item_values, vec![3, 4]);
+        assert_package_valid(&m);
+    }
+
+    #[test]
+    fn list_item_text_is_content() {
+        // Regression: tight-list items (inline text directly under the item)
+        // must emit content — their text was dropped. Per SPEC.md §2.2 the
+        // item is a block container, so the text wraps in an implicit
+        // paragraph with run children.
+        let m = model("# T\n\n- one\n- two\n");
+        let chunks = &m.chunk_section.chunks;
+        let list = chunks
+            .iter()
+            .find(|c| c.kind == ChunkKind::List)
+            .expect("list");
+        let items: Vec<&ChunkRecord> = chunks
+            .iter()
+            .filter(|c| c.kind == ChunkKind::ListItem)
+            .collect();
+        assert_eq!(items.len(), 2);
+        for item in &items {
+            assert!(item.first_child_id != 0, "list item has a paragraph child");
+            let para = chunks
+                .iter()
+                .find(|c| c.ordinal + 1 == item.first_child_id)
+                .expect("paragraph child");
+            assert_eq!(para.kind, ChunkKind::Paragraph);
+            assert!(para.first_child_id != 0, "paragraph has a run child");
+            let run = chunks
+                .iter()
+                .find(|c| c.ordinal + 1 == para.first_child_id)
+                .expect("run child");
+            assert_eq!(run.kind, ChunkKind::Run);
+            assert!(run.content_index != 0, "run has a text payload");
+        }
+        assert_eq!(list.first_child_id, items[0].ordinal + 1);
+        assert_eq!(list.last_child_id, items[1].ordinal + 1);
+        let text: Vec<&str> = m
+            .content_section
+            .payloads
+            .iter()
+            .filter(|p| p.kind == PayloadKind::TextUtf8)
+            .map(|p| std::str::from_utf8(&p.data).expect("utf8"))
+            .collect();
+        assert!(text.contains(&"one"));
+        assert!(text.contains(&"two"));
+        assert_package_valid(&m);
+    }
+
+    #[test]
+    fn code_block_text_is_content() {
+        // Regression: the verbatim code text must be a content payload on the
+        // code chunk — it was dropped.
+        let m = model("```text\nfn main() {}\n```\n");
+        let code = m
+            .chunk_section
+            .chunks
+            .iter()
+            .find(|c| c.kind == ChunkKind::CodeBlock)
+            .expect("code chunk");
+        assert!(code.content_index != 0, "code chunk has a text payload");
+        let payload = &m.content_section.payloads[(code.content_index - 1) as usize];
+        assert_eq!(payload.kind, PayloadKind::TextUtf8);
+        assert_eq!(
+            std::str::from_utf8(&payload.data).expect("utf8"),
+            // Code content is preserved verbatim (including the trailing newline).
+            "fn main() {}\n"
+        );
+        assert_package_valid(&m);
+    }
+
+    #[test]
+    fn table_cell_text_is_content() {
+        // Regression: cell text (transparent inline content under a cell)
+        // must emit content — it was dropped. The cell is a block container,
+        // so the text wraps in an implicit paragraph.
+        let src = "<table><tr><td>alpha</td><td>beta</td></tr></table>";
+        let root = glyphcull_semantic::parse_html(src).expect("parse").tree;
+        let m = build_chunk_model(&root, &[], &[]);
+        let cells: Vec<&ChunkRecord> = m
+            .chunk_section
+            .chunks
+            .iter()
+            .filter(|c| c.kind == ChunkKind::TableCell)
+            .collect();
+        assert_eq!(cells.len(), 2);
+        for cell in &cells {
+            assert!(cell.first_child_id != 0, "cell has a paragraph child");
+            let para = m
+                .chunk_section
+                .chunks
+                .iter()
+                .find(|c| c.ordinal + 1 == cell.first_child_id)
+                .expect("paragraph child");
+            assert_eq!(para.kind, ChunkKind::Paragraph);
+        }
+        let text: Vec<&str> = m
+            .content_section
+            .payloads
+            .iter()
+            .filter(|p| p.kind == PayloadKind::TextUtf8)
+            .map(|p| std::str::from_utf8(&p.data).expect("utf8"))
+            .collect();
+        assert!(text.contains(&"alpha"));
+        assert!(text.contains(&"beta"));
         assert_package_valid(&m);
     }
 
