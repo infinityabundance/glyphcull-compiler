@@ -94,7 +94,10 @@ impl Default for ResolvedStyle {
             margin_bottom: 0.0,
             text_align: 0,
             text_indent: 0.0,
-            list_style: 1,
+            // SPEC.md §2.3: the package-level default is 0 (none); the UA
+            // stylesheet's `ul { list-style-type: disc }` then differs from
+            // this base and is emitted explicitly for list items.
+            list_style: 0,
             code: false,
             underline: false,
             letter_spacing: 0.0,
