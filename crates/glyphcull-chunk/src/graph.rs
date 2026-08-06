@@ -34,6 +34,23 @@ use glyphcull_semantic::model::{SemanticKind, SemanticNode};
 
 use crate::styles::{FaceKey, ResolvedStyle};
 
+/// The marker glyph charset needed for a list style (SPEC.md §2.5 — runtimes
+/// never synthesize typefaces, so every marker codepoint must be in the
+/// atlas). Ordered lists need the full counter alphabet plus the separator.
+fn marker_charset(list_style: u8) -> &'static str {
+    match list_style {
+        1 => "\u{2022}",                    // disc
+        2 => "\u{25e6}",                    // circle
+        3 => "\u{25aa}",                    // square
+        4 => "0123456789.",                 // decimal
+        5 => "abcdefghijklmnopqrstuvwxyz.", // lower-alpha
+        6 => "ABCDEFGHIJKLMNOPQRSTUVWXYZ.", // upper-alpha
+        7 => "ivxlcdm.",                    // lower-roman
+        8 => "IVXLCDM.",                    // upper-roman
+        _ => "",
+    }
+}
+
 /// An image reference in document order; the pipeline decodes images in this
 /// exact order so IMGS ids match the image_ref payload indices.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -364,6 +381,18 @@ impl Builder {
         let style = crate::styles::resolve_node(node, ancestors, parent_style, &self.rules);
         let style_id = self.intern_style(style.clone());
         let chain = Self::chain(node, ancestors);
+        // Marker glyphs must be in the atlas (runtimes never synthesize
+        // typefaces): register the charset of the item's list style against
+        // the item's face so the atlas covers the markers.
+        let face = FaceKey {
+            family: style.font_family.clone(),
+            weight: style.font_weight,
+            italic: style.italic,
+        };
+        let set = self.used.entry(face).or_default();
+        for c in marker_charset(style.list_style).chars() {
+            set.insert(u32::from(c));
+        }
         self.push(ChunkKind::ListItem, node, style_id, 0);
         if ordered {
             let id = self.current_id();
@@ -951,6 +980,25 @@ mod tests {
         assert!(text.contains(&"alpha"));
         assert!(text.contains(&"beta"));
         assert_package_valid(&m);
+    }
+
+    #[test]
+    fn list_marker_glyphs_registered() {
+        // Regression: marker glyphs must be in the atlas (runtimes never
+        // synthesize typefaces). The default stylesheet gives ul → disc and
+        // ol → decimal; the used-codepoint sets must cover the markers.
+        let m = model("# T\n\n- one\n- two\n\n3. third\n4. fourth\n");
+        let all: std::collections::BTreeSet<u32> = m
+            .used_codepoints
+            .values()
+            .flat_map(|set| set.iter().copied())
+            .collect();
+        assert!(all.contains(&0x2022), "disc marker glyph present");
+        assert!(all.contains(&b'.' as u32), "decimal separator present");
+        for digit in 0_u32..10 {
+            let cp = u32::from(b'0') + digit;
+            assert!(all.contains(&cp), "digit {cp} present for counters");
+        }
     }
 
     #[test]

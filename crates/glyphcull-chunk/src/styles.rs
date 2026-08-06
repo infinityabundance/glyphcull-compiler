@@ -30,6 +30,8 @@ h6 { font-size: 0.67em; font-weight: 700; margin-top: 2.33em; margin-bottom: 2.3
 p { margin-bottom: 1em; }
 blockquote { margin-top: 1em; margin-bottom: 1em; }
 ul, ol { margin-bottom: 1em; }
+ul { list-style-type: disc; }
+ol { list-style-type: decimal; }
 li { margin-bottom: 0.25em; }
 pre { white-space: pre; margin-top: 1em; margin-bottom: 1em; }
 img { margin-top: 1em; margin-bottom: 1em; }
