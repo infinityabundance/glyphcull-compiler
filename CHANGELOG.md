@@ -28,7 +28,27 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - SPEC.md finalized against the implementation (1-based chunk ids and content_index,
   non-circular SEAL overall hash; see SPEC.md §7 History).
 
-### Planned (Phase 2 — Compiler pipeline)
+### Added (Phase 2 — Compiler pipeline)
 
-- Semantic Graph, HTML/Markdown front ends, Chunk Graph and transforms, MSDF glyph atlas
-  generation, compression, `cull compile` CLI, full test pyramid and documentation.
+- `glyphcull-semantic` crate: the Semantic Graph (NFC boundary, bounded depth/arity,
+  shape invariants) with an HTML5 front end (custom html5ever `TreeSink`, CSS extraction,
+  metadata) and a Markdown front end (pulldown-cmark, CommonMark scope); a strict CSS
+  subset parser; whitespace normalization that preserves style ownership; deterministic
+  inline-image hoisting with link-target transfer.
+- `glyphcull-chunk` crate: the Chunk Graph partition (SPEC.md CHNK) with the CSS cascade
+  folded into flat resolved styles (defaults owned by a reviewed built-in stylesheet),
+  per-node style resolution for inline content, multi-run link extras, hoisted image
+  links, codepoint-per-face collection.
+- `glyphcull-atlas` crate: exact MSDF generation — exact signed distance to line and
+  quadratic Bézier segments, bounded-error cubic→quadratic conversion, msdfgen-style
+  two-bit edge coloring (the median-reconstruction property), a faithful translation of
+  msdfgen's error-correction pass, deterministic skyline packing, GPOS PairPos
+  (formats 1 & 2) + kern kerning extraction, supersampled reference rasterization with
+  committed rendering-validation tolerances, proptest geometry properties.
+- `glyphcull-pipeline` crate: the deterministic end-to-end compiler — front ends → chunk
+  graph → per-face MSDF atlases (adaptive page sizing) → PNG/JPEG decode → INFO/CHNK/
+  STYL/CONT/GLYF/IMGS/SEAL assembly with content-addressed `document_id`, bundled Noto
+  Sans registry, self-validating output, golden fixtures, stress tests.
+- `cull compile <input> [-s style.css]... [-o out.cull]` CLI subcommand.
+- SPEC.md clarification: `document_id` is computed over the decoded content sections
+  (non-circular; see SPEC.md §7 History).

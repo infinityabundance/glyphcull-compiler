@@ -121,3 +121,58 @@ and tradeoffs.
   Presentational leftovers that carry no semantics (e.g., `<b>` vs `<strong>`) are
   canonicalized to semantic kinds. This is what makes the Chunk Graph a stable contract
   independent of input format.
+
+## D14. Two-bit edge coloring is what makes the median reconstruction exact
+
+- **Rationale**: msdfgen colors each edge with a *two-bit* mask (CYAN/MAGENTA/YELLOW —
+  every edge contributes its distance to two of the three channels). At any texel near a
+  single edge, two channels carry the true distance, so the median-of-three
+  reconstruction is exact there; at a corner the two incident edges share exactly one
+  channel and the median equals the minimum of the two edge distances — the correct
+  pseudo-distance. Single-bit coloring (one channel per edge) makes the median dominated
+  by the far channel at straight edges and was rejected after measurement (RMSE 0.09 vs
+  0.02 at 1:1).
+- **Alternatives**: storing the true distance in a fourth channel (MTSDF) — more texture
+  cost; pseudo-distance-only SDF — poor corners.
+- **Tradeoffs**: the three channels must be balanced; the error-correction pass (D15)
+  handles the residual interpolation artifacts.
+
+## D15. Error correction is a faithful translation of msdfgen's pass
+
+- **Rationale**: bilinear sampling between texels can make the interpolated median spike.
+  The correction protects corner/edge texels, detects artifacts (base classifier plus an
+  exact-shape-distance improvement test), and equalizes flagged texels to single-channel.
+  It is rarely triggered by this compiler's atlases (exact distances + two-bit coloring
+  are already well-behaved), but it is the defensive, msdfgen-faithful guarantee that
+  interpolation artifacts stay bounded on any future atlas configuration.
+- **Tradeoffs**: an O(texels × neighbors) pass at build time — negligible.
+
+## D16. Images are decoded at compile time; unknown images are errors
+
+- **Rationale**: the format stores raw pixels (SPEC.md §2.6) so runtimes never decode
+  image formats. A document referencing an unreadable or unsupported image fails the
+  compile with a precise diagnostic — the compiler never silently drops content.
+- **Tradeoffs**: the compiler must ship PNG/JPEG decoders (small, audited).
+
+## D17. Font families are resolved, never substituted silently
+
+- **Rationale**: a resolved `font-family` maps to a bundled face (or a compile error).
+  The generic families `sans-serif`/`serif` map to the default family; missing weights
+  resolve to the nearest bundled weight. Unknown families fail the compile so documents
+  cannot silently render with the wrong typeface.
+- **Tradeoffs**: documents needing other fonts cannot compile against the bundled
+  registry in v1 (a future extension may add a font-loader hook).
+
+## D18. Adaptive atlas page sizing
+
+- **Rationale**: a fixed 1024² page wastes ~4 MiB per page on small documents. Pages are
+  sized to each face's glyph count (power-of-two, 64..=2048, 75% fill estimate); the
+  packer spills to further pages when a face outgrows the cap. Deterministic by
+  construction.
+
+## D19. `document_id` is content-addressed over the content sections
+
+- **Rationale**: the id is the first 16 bytes of SHA-256 over the decoded CHNK..IMGS
+  payloads (canonical order). INFO/SEAL are excluded — the id must be computable before
+  INFO is finalized, and SEAL is keyed to the exact bytes. This makes the id a stable
+  content address independent of metadata and compression.

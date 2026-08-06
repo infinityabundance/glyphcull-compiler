@@ -50,6 +50,16 @@ pub fn run(args: &[String]) -> ExitCode {
             };
             validate(path)
         }
+        Some("compile") => {
+            let Some(_path) = args.get(1) else {
+                eprintln!(
+                    "usage: cull compile <input.md|input.html> [-s style.css]... [-o out.cull]"
+                );
+                return ExitCode::from(2);
+            };
+            let rest = args.get(1..).unwrap_or(&[]);
+            compile_cmd(rest)
+        }
         Some("inspect") => {
             let Some(path) = args.get(1) else {
                 eprintln!("usage: cull inspect <file.cull>");
@@ -83,9 +93,11 @@ fn print_usage() {
         "cull — the GlyphCull document package tool\n\
          \n\
          USAGE:\n\
-         \x20   cull validate <file.cull>   structural + semantic validation\n\
-         \x20   cull inspect  <file.cull>   package diagnostics\n\
-         \x20   cull --version              print the version\n"
+         \x20   cull compile <input.md|input.html>   compile a document to a .cull package\n\
+         \x20          [-s style.css]... [-o out.cull]\n\
+         \x20   cull validate <file.cull>            structural + semantic validation\n\
+         \x20   cull inspect  <file.cull>            package diagnostics\n\
+         \x20   cull --version                       print the version\n"
     );
 }
 
@@ -302,4 +314,137 @@ fn inspect(path: &str) -> ExitCode {
         return ExitCode::from(2);
     }
     ExitCode::SUCCESS
+}
+
+/// `cull compile <input> [-s style.css]... [-o out.cull]`.
+///
+/// The input kind is inferred from the extension (`.md`/`.markdown` →
+/// Markdown; `.html`/`.htm` → HTML). Stylesheet files are loaded in order
+/// after any in-document `<style>` blocks; images are loaded relative to the
+/// input file's directory. The output defaults to stdout.
+fn compile_cmd(args: &[String]) -> ExitCode {
+    let mut input: Option<String> = None;
+    let mut stylesheets: Vec<String> = Vec::new();
+    let mut output: Option<String> = None;
+    let mut iter = args.iter();
+    while let Some(arg) = iter.next() {
+        match arg.as_str() {
+            "-s" | "--style" => {
+                let Some(path) = iter.next() else {
+                    eprintln!("error: -s requires a stylesheet path");
+                    return ExitCode::from(2);
+                };
+                stylesheets.push(path.clone());
+            }
+            "-o" | "--output" => {
+                let Some(path) = iter.next() else {
+                    eprintln!("error: -o requires an output path");
+                    return ExitCode::from(2);
+                };
+                output = Some(path.clone());
+            }
+            "-h" | "--help" => {
+                print_usage();
+                return ExitCode::SUCCESS;
+            }
+            other => {
+                if input.is_some() {
+                    eprintln!("error: unexpected argument {other}");
+                    return ExitCode::from(2);
+                }
+                input = Some(other.to_string());
+            }
+        }
+    }
+    let Some(input) = input else {
+        eprintln!("usage: cull compile <input.md|input.html> [-s style.css]... [-o out.cull]");
+        return ExitCode::from(2);
+    };
+
+    let source = match std::fs::read_to_string(&input) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("error: cannot read {input}: {e}");
+            return ExitCode::from(1);
+        }
+    };
+    let kind = match input
+        .rsplit('.')
+        .next()
+        .map(str::to_ascii_lowercase)
+        .as_deref()
+    {
+        Some("md" | "markdown") => glyphcull_pipeline::InputKind::Markdown,
+        Some("html" | "htm") => glyphcull_pipeline::InputKind::Html,
+        other => {
+            eprintln!("error: cannot infer input kind from extension {other:?} (.md / .html)");
+            return ExitCode::from(2);
+        }
+    };
+
+    let mut user_sheets: Vec<String> = Vec::new();
+    for sheet in &stylesheets {
+        match std::fs::read_to_string(sheet) {
+            Ok(s) => user_sheets.push(s),
+            Err(e) => {
+                eprintln!("error: cannot read stylesheet {sheet}: {e}");
+                return ExitCode::from(1);
+            }
+        }
+    }
+
+    // Images resolve relative to the input file's directory.
+    let base = std::path::Path::new(&input)
+        .parent()
+        .map_or_else(std::path::PathBuf::new, std::path::Path::to_path_buf);
+    let options = glyphcull_pipeline::CompileOptions {
+        user_stylesheets: user_sheets,
+        image_loader: Box::new(move |src: &str| {
+            let path = base.join(src);
+            std::fs::read(&path).map_err(|e| format!("{}: {e}", path.display()))
+        }),
+        ..glyphcull_pipeline::CompileOptions::default()
+    };
+
+    match glyphcull_pipeline::compile(&source, kind, &options) {
+        Ok((package, report)) => {
+            if let Some(out_path) = output {
+                if let Err(e) = std::fs::write(&out_path, &package) {
+                    eprintln!("error: cannot write {out_path}: {e}");
+                    return ExitCode::from(1);
+                }
+                println!(
+                    "compiled {input} → {out_path} ({} bytes; {} chunks, {} styles, {} content, {} atlases, {} images)",
+                    package.len(),
+                    report.chunk_count,
+                    report.style_count,
+                    report.content_count,
+                    report.atlas_count,
+                    report.image_count
+                );
+            } else {
+                let stdout = std::io::stdout().lock();
+                let mut stdout = std::io::BufWriter::new(stdout);
+                if stdout
+                    .write_all(&package)
+                    .and_then(|_| stdout.flush())
+                    .is_err()
+                {
+                    eprintln!("error: cannot write stdout");
+                    return ExitCode::from(1);
+                }
+            }
+            for cp in &report.missing_codepoints {
+                eprintln!(
+                    "warning: codepoint U+{cp:04X} ({:?}) has no glyph in the bundled fonts",
+                    char::from_u32(*cp)
+                );
+            }
+            ExitCode::SUCCESS
+        }
+        Err(e) => {
+            eprintln!("error: {e}");
+            ExitCode::from(1)
+        }
+    }
 }

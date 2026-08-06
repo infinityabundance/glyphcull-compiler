@@ -27,9 +27,15 @@ phase lands its slice of the pyramid before it is considered complete.
 - Codecs: round-trip per section kind; strict rejection of unknown tags/kinds/values;
   UTF-8 validation for text payloads; length validation for image payloads.
 - Transforms (Phase 2): each transform's pre/post conditions; identity on canonical input.
+  Implemented: whitespace collapse (style-ownership preserving, line-end rules), image
+  hoisting (link-target transfer, paragraph splitting), chunk partition (document root,
+  per-node cascade, multi-run link extras).
 - MSDF (Phase 2): distance field correctness vs analytic references; edge coloring validity
-  (adjacent edges differ in channel); pseudo-distance corner behavior; atlas packing
-  invariants (no overlap, all glyphs present, bounds within page).
+  (adjacent edges differ in channel, two-bit masks); corner behavior via the median
+  reconstruction; atlas packing invariants (no overlap, all glyphs present, bounds within
+  page); error-correction pass (idempotence, inversion detection, shape-improvement test);
+  proptest properties for the exact distance functions (curvature-aware sampling bound,
+  line-distance closed form).
 
 ### Integration (`tests/`)
 
@@ -40,6 +46,8 @@ phase lands its slice of the pyramid before it is considered complete.
 - `cull inspect` output stability (golden text fixture).
 - Golden package fixtures committed under `tests/fixtures/` with a regeneration script
   (`scripts/regenerate-golden.sh`) that refuses to run on a dirty tree.
+- End-to-end compiler tests: `cull compile` → `cull validate` over Markdown and HTML
+  (golden byte-exact fixture + stress documents, see `glyphcull-pipeline/tests/`).
 
 ### Property (`proptest`)
 
@@ -77,10 +85,11 @@ phase lands its slice of the pyramid before it is considered complete.
 
 ### Rendering validation (Phase 2)
 
-- MSDF-reconstructed coverage compared against a direct reference rasterizer for a glyph
-  corpus (Latin, digits, punctuation, combining marks) at multiple scale factors; committed
-  tolerance (e.g., mean abs error ≤ 1/64 in coverage, worst-case ≤ 1/8 with documented
-  exceptions at extreme magnification).
+- MSDF-reconstructed coverage compared against a direct supersampled reference rasterizer
+  for a real-glyph corpus (Noto Sans Regular: A H O V g p q) at 64 texels/em, at texel
+  centers and within-pixel bilinear offsets. Committed tolerances: RMSE < 0.1, worst-case
+  single-texel error < 0.6 (measured ≈ 0.023 / 0.43); the residual error concentrates in the
+  one-texel boundary band and at corners — the inherent limit of 8-bit MSDF at 1:1.
 
 ### Package validation
 

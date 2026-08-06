@@ -17,7 +17,7 @@
 //!    to the median), which eliminates the interpolation spike locally.
 //!
 //! The algorithm is deterministic and operates on the float channel values
-//! (in the [0,1] domain with the edge at 0.5) before 8-bit quantization.
+//! (in the \[0,1] domain with the edge at 0.5) before 8-bit quantization.
 //!
 //! Direct grid indexing is used throughout (the documented exception, as in
 //! `glyphcull-chunk::graph`): every index is `y * width + x` with `x < width`
@@ -98,7 +98,7 @@ fn shape_distance(p: Point, contours: &[ColoredContour]) -> f64 {
 }
 
 /// Run the correction pass on `values` (`width × height` texels, 3 channels
-/// each, in the [0,1] domain with the edge at 0.5). `contours` is the colored
+/// each, in the \[0,1] domain with the edge at 0.5). `contours` is the colored
 /// outline scaled to texel units (y-up, global frame); `x_min_t`/`y_min_t` are
 /// the box's top-left page-texel coordinates (see [`crate::sdf::render_msdf`]).
 pub fn correct_msdf(

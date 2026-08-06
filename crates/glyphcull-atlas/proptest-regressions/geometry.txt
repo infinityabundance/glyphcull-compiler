@@ -1,0 +1,9 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc a3e77d4436198465b3ea0a9007d8f60f29719a488cebe6fba57b3b1f78b59c4f # shrinks to p = Point { x: 583.8171140737979, y: 832.4168923924447 }, q = Quadratic { a: Point { x: 170.1004402603553, y: -633.8373390299828 }, c: Point { x: 897.0742291052991, y: -836.0652052865235 }, b: Point { x: -201.59794914184877, y: -781.6573986007987 } }
+cc af70177e5fb41db0e9a1c9efdb95b7e8e0aadf8ea8e13d8cb359e2ef7c3b7651 # shrinks to p = Point { x: 733.6233515295802, y: -474.59630914229916 }, q = Quadratic { a: Point { x: -651.3390942321043, y: 865.1733020216732 }, c: Point { x: 276.74780885005526, y: 894.3820117182751 }, b: Point { x: 885.6655946200179, y: -671.7534496365529 } }
+cc 073a37f9702d0a58404a70bcd8e42a1f49a4d90900b7e075736686d5831cc5d4 # shrinks to p = Point { x: -702.7981365358091, y: 105.07414102948935 }, q = Quadratic { a: Point { x: 150.86567686300234, y: 546.9931428101486 }, c: Point { x: -899.3600135934341, y: -500.22671166071814 }, b: Point { x: 538.728892279156, y: 635.4796106696094 } }

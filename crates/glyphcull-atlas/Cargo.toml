@@ -16,3 +16,6 @@ workspace = true
 [dependencies]
 glyphcull-format = { version = "0.1.0", path = "../glyphcull-format" }
 ttf-parser = "0.24"
+
+[dev-dependencies]
+proptest = "1"

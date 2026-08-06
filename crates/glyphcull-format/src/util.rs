@@ -4,7 +4,7 @@
 //! is never used on untrusted lengths. All integers are little-endian per SPEC.md §1.
 //!
 //! The cursor is the single choke point for untrusted bytes: all accesses go through
-//! [`Cursor::take`], which verifies bounds before returning a slice. The direct
+//! `Cursor::take`, which verifies bounds before returning a slice. The direct
 //! indexing inside this module is therefore provably safe (the exclusive purpose of
 //! the module) and is the documented exception to the workspace's indexing policy.
 #![allow(clippy::indexing_slicing)]

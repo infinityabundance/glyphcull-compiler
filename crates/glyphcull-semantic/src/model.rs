@@ -216,7 +216,7 @@ impl SemanticNode {
     }
 
     /// Append text to the node's text (normalization happens in a final tree pass;
-    /// see [`normalize_tree`]).
+    /// see [`SemanticNode::normalize_tree`]).
     pub fn push_text(&mut self, text: &str) {
         self.text.push_str(text);
     }

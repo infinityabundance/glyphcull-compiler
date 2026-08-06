@@ -311,7 +311,7 @@ mod tests {
     use super::*;
 
     /// The bundled Noto Sans Regular.
-    const NOTO: &[u8] = include_bytes!("../../../assets/fonts/NotoSans-Regular.ttf");
+    const NOTO: &[u8] = include_bytes!("../assets/fonts/NotoSans-Regular.ttf");
 
     fn sample_codepoints() -> BTreeSet<u32> {
         "Hello, world! 123".chars().map(|c| c as u32).collect()

@@ -308,7 +308,7 @@ mod tests {
     use crate::error::Error;
 
     /// The bundled Noto Sans Regular (present in the compiler assets).
-    const NOTO: &[u8] = include_bytes!("../../../assets/fonts/NotoSans-Regular.ttf");
+    const NOTO: &[u8] = include_bytes!("../assets/fonts/NotoSans-Regular.ttf");
 
     #[test]
     fn parses_metrics() {

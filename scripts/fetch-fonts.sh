@@ -19,10 +19,15 @@ unzip -q -o noto.zip \
     "NotoSans/unhinted/ttf/NotoSans-Italic.ttf" \
     "NotoSans/unhinted/ttf/NotoSans-BoldItalic.ttf"
 
-DEST="$(cd "$(dirname "$0")/.." && pwd)/assets/fonts"
-for face in Regular Bold Italic BoldItalic; do
-    cp "NotoSans/unhinted/ttf/NotoSans-${face}.ttf" "$DEST/"
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+for dest in "$ROOT/assets/fonts" "$ROOT/crates/glyphcull-atlas/assets/fonts" "$ROOT/crates/glyphcull-pipeline/assets/fonts"; do
+    mkdir -p "$dest"
+    for face in Regular Bold Italic BoldItalic; do
+        cp "NotoSans/unhinted/ttf/NotoSans-${face}.ttf" "$dest/"
+    done
+    cp "OFL.txt" "$dest/" 2>/dev/null || true
 done
+DEST="$ROOT/assets/fonts"
 
 cd "$DEST"
 sha256sum -c "$(cd "$(dirname "$0")/.." && pwd)/scripts/font-checksums.sha256"

@@ -630,3 +630,83 @@ mod tests {
         assert_eq!(winding(Point::new(-0.1, 0.5)), 0);
     }
 }
+
+#[cfg(test)]
+mod property_tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    fn any_point() -> impl Strategy<Value = Point> {
+        (-1000.0_f64..1000.0).prop_map(|x| {
+            let y = (x * 1.618_033_988_749_895).sin() * 1000.0;
+            Point::new(x, y)
+        })
+    }
+
+    fn any_quadratic() -> impl Strategy<Value = Quadratic> {
+        (-1000.0_f64..1000.0).prop_map(|cx| {
+            let a = Point::new((cx * 0.37).sin() * 900.0, (cx * 0.71).cos() * 900.0);
+            let b = Point::new((cx * 1.13).cos() * 900.0, (cx * 0.23).sin() * 900.0);
+            let c = Point::new((cx * 0.57).sin() * 900.0, (cx * 1.41).cos() * 900.0);
+            Quadratic { a, c, b }
+        })
+    }
+
+    proptest! {
+        /// The exact distance to a quadratic is consistent with the sampled
+        /// minimum within a rigorous curvature-aware bound: with samples at
+        /// spacing `h`, the sampled minimum overestimates the true minimum by
+        /// at most `½·max|f″|·(h/2)²` where `f(t) = |Q(t) − p|²`.
+        #[test]
+        fn quadratic_distance_is_minimal(p in any_point(), q in any_quadratic()) {
+            let exact = distance_to_quadratic(p, q);
+            // f″(t) = 2(Q−p)·Q″ + 2|Q′|², with Q″ constant for quadratics.
+            let qpp = q.a.sub(q.c.scale(2.0)).add(q.b).scale(2.0);
+            let f2 = |t: f64| -> f64 {
+                let e = q.eval(t).sub(p);
+                let tng = q.tangent(t);
+                (2.0 * e.dot(qpp) + 2.0 * tng.dot(tng)).abs()
+            };
+            let mut f2max = 0.0_f64;
+            for i in 0..=32 {
+                f2max = f2max.max(f2(i as f64 / 32.0));
+            }
+            let samples = 4096_usize;
+            let h = 1.0 / samples as f64;
+            let mut sampled = f64::INFINITY;
+            for i in 0..=samples {
+                let d = p.dist_sq(q.eval(i as f64 / samples as f64)).sqrt();
+                if d < sampled {
+                    sampled = d;
+                }
+            }
+            // Soundness: the exact distance never exceeds any sample.
+            assert!(exact <= sampled + 1e-9, "exact {exact} > sampled {sampled}");
+            // Completeness: it is not below the true minimum, which the sampled
+            // minimum overestimates by at most the curvature bound.
+            let tol = 0.5 * f2max * (h / 2.0) * (h / 2.0) + 1e-6;
+            assert!(
+                exact >= sampled - tol,
+                "exact {exact} below sampled {sampled} beyond bound {tol}"
+            );
+        }
+
+        /// The line distance is exact for any point.
+        #[test]
+        fn line_distance_is_minimal(p in any_point(), a in any_point(), b in any_point()) {
+            let line = Line { a, b };
+            let exact = distance_to_line(p, line);
+            let proj = {
+                let ab = a.to(b);
+                let len = ab.length();
+                if len < 1e-9 {
+                    p.dist_sq(a).sqrt()
+                } else {
+                    let t = (a.to(p).dot(ab) / (len * len)).clamp(0.0, 1.0);
+                    p.dist_sq(a.lerp(b, t)).sqrt()
+                }
+            };
+            assert!((exact - proj).abs() < 1e-6, "{exact} vs {proj}");
+        }
+    }
+}

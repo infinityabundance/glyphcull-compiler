@@ -20,8 +20,10 @@
 //!   container (header, section table, CRC-32, deterministic zlib), the seven
 //!   section codecs, the strict panic-free reader, the deterministic writer, and
 //!   semantic validation.
-//! - [`glyphcull_cli`] — the `cull` command-line tool (validate/inspect today;
-//!   `compile` with the Phase 2 pipeline).
+//! - [`glyphcull_cli`] — the `cull` command-line tool (`compile`, `validate`,
+//!   `inspect`).
+//! - [`glyphcull_pipeline`] — the deterministic compiler pipeline: HTML/Markdown
+//!   → semantic graph → chunk graph → MSDF glyph atlases → a `.cull` package.
 //!
 //! # Example
 //!
@@ -58,6 +60,10 @@ pub use glyphcull_format;
 
 /// The `cull` command-line tool.
 pub use glyphcull_cli;
+
+/// The compiler pipeline: HTML/Markdown → semantic graph → chunk graph → MSDF
+/// atlases → `.cull` package.
+pub use glyphcull_pipeline;
 
 /// The current `.cull` format version.
 pub use glyphcull_format::VERSION;

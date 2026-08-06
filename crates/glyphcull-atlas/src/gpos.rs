@@ -403,7 +403,7 @@ mod tests {
     use super::*;
 
     /// The bundled Noto Sans Regular.
-    const NOTO: &[u8] = include_bytes!("../../../assets/fonts/NotoSans-Regular.ttf");
+    const NOTO: &[u8] = include_bytes!("../assets/fonts/NotoSans-Regular.ttf");
 
     fn used(s: &str) -> BTreeSet<u32> {
         s.chars().map(|c| c as u32).collect()

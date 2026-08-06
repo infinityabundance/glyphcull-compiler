@@ -224,6 +224,7 @@ version = "0.1.0"
 dependencies = [
  "glyphcull-cli",
  "glyphcull-format",
+ "glyphcull-pipeline",
 ]
 
 [[package]]
@@ -231,6 +232,7 @@ name = "glyphcull-atlas"
 version = "0.1.0"
 dependencies = [
  "glyphcull-format",
+ "proptest",
  "ttf-parser",
 ]
 
@@ -247,6 +249,7 @@ name = "glyphcull-cli"
 version = "0.1.0"
 dependencies = [
  "glyphcull-format",
+ "glyphcull-pipeline",
 ]
 
 [[package]]

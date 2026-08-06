@@ -1,7 +1,7 @@
 # Architecture — glyphcull-compiler
 
-Status: Phase 0 (foundations). This document is living and is updated as each subsystem
-completes. See [`ROADMAP.md`](ROADMAP.md) for the phase state.
+Status: Phase 2 (compiler pipeline) complete. This document is living and is updated as each
+subsystem completes. See [`ROADMAP.md`](ROADMAP.md) for the phase state.
 
 ## 1. Purpose
 
@@ -99,16 +99,25 @@ The Chunk Graph is the renderable-unit IR. It is what the runtime walks.
 
 ## 6. Stage 4 — Transform pipeline
 
-Transforms are named, ordered, pure functions over the chunk graph (or semantic graph),
-each with unit tests and documented pre/post conditions:
+The transform pipeline is a small set of named, ordered, deterministic passes, each owned by
+one crate and each with unit tests and documented pre/post conditions. Input normalization and
+style resolution operate on the semantic graph; partition produces the chunk graph; emission
+is the format layer (Stage 7):
 
-1. `normalize` — input normalization (NFC, whitespace policy, empty-node elimination).
-2. `resolve_styles` — CSS cascade folded into flat, inherited-computed styles per chunk.
-   The runtime therefore implements *no* cascade; it consumes resolved styles only.
-3. `partition` — semantic nodes → chunks with content extraction (text payloads, image refs).
-4. `order` — deterministic ordinal and id assignment (document order).
-5. `dedupe` — style interning and content deduplication.
-6. `emit` — section encoding + package assembly (see Stage 7).
+1. `normalize` (glyphcull-semantic `cleanup_tree`) — NFC, whitespace collapse (line-end
+   rules, style-ownership preserving), empty-node elimination, deterministic inline-image
+   hoisting with link-target transfer, preformatted content preserved verbatim.
+2. `resolve_styles` (glyphcull-chunk `styles::resolve_styles`) — the CSS cascade folded into
+   flat inherited-computed styles per node (defaults owned by a reviewed built-in
+   stylesheet). The runtime therefore implements *no* cascade; it consumes resolved styles
+   only. Unknown font families fail resolution here (see DESIGN.md D17).
+3. `partition` (glyphcull-chunk `graph::build_chunk_model`) — semantic nodes → chunks with
+   content extraction (interned text payloads, image references), deterministic id/ordinal
+   assignment (document order), style interning and content deduplication, per-face
+   codepoint collection (drives atlas generation).
+4. `emit` (glyphcull-pipeline + glyphcull-format) — section encoding and package assembly
+   (see Stage 7): INFO metadata (content-addressed `document_id`), CHNK/STYL/CONT sections,
+   GLYF atlases per face, IMGS decoded pixels, SEAL integrity tree.
 
 Transforms never render, never measure text, and never depend on viewport state. Layout is a
 runtime concern; the package is layout-independent.
@@ -145,12 +154,14 @@ Byte-deterministic for identical input and toolchain.
 
 ```
 crates/
-  glyphcull-format/    Phase 1 — the contract: container, section codecs, validation
-  glyphcull-semantic/  Phase 2 — Semantic Graph model + HTML/Markdown front ends
-  glyphcull-chunk/     Phase 2 — Chunk Graph, transforms
-  glyphcull-atlas/     Phase 2 — MSDF generation, packing
-  glyphcull-cli/       Phase 2 — `cull` binary (compile/validate/inspect)
-src/                   Phase 2 — pipeline orchestration, shared utilities
+  glyphcull-format/     Phase 1 — the contract: container, section codecs, validation
+  glyphcull-semantic/   Phase 2 — Semantic Graph model + HTML/Markdown front ends, CSS subset
+  glyphcull-chunk/      Phase 2 — Chunk Graph, transforms (normalize, resolve_styles, partition)
+  glyphcull-atlas/      Phase 2 — MSDF generation, packing, kerning extraction
+  glyphcull-pipeline/   Phase 2 — orchestration: front ends → chunk graph → atlases → images →
+                                  package (fonts registry, image decoding, compile())
+  glyphcull-cli/        Phase 2 — `cull` binary (compile/validate/inspect)
+src/                   Phase 2 — umbrella re-exports
 ```
 
 Each crate owns its tests; cross-crate integration tests live in `tests/` with committed

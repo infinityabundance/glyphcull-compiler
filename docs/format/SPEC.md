@@ -125,7 +125,7 @@ escaping. Text values are UTF-8. All values are derived from content or configur
 | `generator` | string | Compiler name, e.g. `"glyphcull-compiler"` |
 | `generator_version` | string | Semantic compiler version |
 | `source_digest` | string | Hex SHA-256 of the normalized source input(s) |
-| `document_id` | string | Hex: first 16 bytes of SHA-256 over the full decoded package body (sections, in canonical order). Content-addressed; deterministic. |
+| `document_id` | string | Hex: first 16 bytes of SHA-256 over the decoded content sections `CHNK, STYL, CONT, GLYF, IMGS` in canonical order (INFO and SEAL excluded — the id is computed before INFO is finalized, so including them would be circular). Content-addressed; deterministic. |
 | `title` | string (optional) | Document title |
 | `lang` | string (optional) | BCP 47 language tag |
 | `chunk_count` | number | CHNK record count |
@@ -465,3 +465,6 @@ mandatory when present. Compilers never embed source paths, comments, or timesta
   - Golden reference implementation, golden byte vectors, and the strict reader corpus
     established; the JS and Rust runtimes will implement independent readers against
     this finalized spec.
+- v1, Phase 2 (compiler pipeline, implementation-driven clarifications):
+  - `document_id` defined non-circularly: SHA-256 over the decoded content sections
+    `CHNK, STYL, CONT, GLYF, IMGS` (INFO/SEAL excluded — see §2.1).

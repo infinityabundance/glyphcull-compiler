@@ -24,6 +24,7 @@ exclude = ["crates/**", "docs/**", "scripts/**", "tests/**", ".github/**"]
 [dependencies]
 glyphcull-format = { version = "0.1.0", path = "crates/glyphcull-format" }
 glyphcull-cli = { version = "0.1.0", path = "crates/glyphcull-cli" }
+glyphcull-pipeline = { version = "0.1.0", path = "crates/glyphcull-pipeline" }
 
 [lints]
 workspace = true

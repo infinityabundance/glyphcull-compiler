@@ -3,31 +3,31 @@
 Execution order is mandatory and matches the master plan in the root `PLAN.md`. Phases are
 never reordered, merged, deferred, or skipped.
 
-## Phase 1 — The contract (in progress next)
+## Phase 1 — The contract (complete)
 
 `crates/glyphcull-format` — the `.cull` format reference implementation.
 
-- [ ] Container: header, section table, CRC-32 (in-repo, known-answer tested), zlib v1 sections (flate2).
-- [ ] Section codecs: INFO, CHNK, STYL, CONT, GLYF, IMGS, SEAL per `docs/format/SPEC.md`.
-- [ ] Strict bounds-checked reader; no panics on malformed input; truncation corpus tests.
-- [ ] Deterministic writer; golden minimal-package byte vector (hand-pinned).
-- [ ] `cull-validate` (structural + semantic) and `cull-inspect` (diagnostics).
-- [ ] Test pyramid: unit, golden, round-trip, malformed corpus, determinism, property tests.
-- [ ] `docs/format/SPEC.md` finalized against the implementation; both runtimes will implement
+- [x] Container: header, section table, CRC-32 (in-repo, known-answer tested), zlib v1 sections (flate2).
+- [x] Section codecs: INFO, CHNK, STYL, CONT, GLYF, IMGS, SEAL per `docs/format/SPEC.md`.
+- [x] Strict bounds-checked reader; no panics on malformed input; truncation corpus tests.
+- [x] Deterministic writer; golden minimal-package byte vector (hand-pinned).
+- [x] `cull-validate` (structural + semantic) and `cull-inspect` (diagnostics).
+- [x] Test pyramid: unit, golden, round-trip, malformed corpus, determinism, property tests.
+- [x] `docs/format/SPEC.md` finalized against the implementation; both runtimes will implement
       independent readers from the spec.
 
 ## Phase 2 — Compiler pipeline
 
-- [ ] `glyphcull-semantic`: Semantic Graph model + invariants; HTML5 front end; Markdown front end.
-- [ ] CSS subset parser + style binding (cascade into annotations).
-- [ ] `glyphcull-chunk`: Chunk Graph, transforms (`normalize`, `resolve_styles`, `partition`, `order`, `dedupe`, `emit`).
-- [ ] `glyphcull-atlas`: font parsing (ttf-parser), exact quadratic distance, MSDF coloring +
+- [x] `glyphcull-semantic`: Semantic Graph model + invariants; HTML5 front end; Markdown front end.
+- [x] CSS subset parser + style binding (cascade into annotations).
+- [x] `glyphcull-chunk`: Chunk Graph, transforms (`normalize`, `resolve_styles`, `partition`, `order`, `dedupe`, `emit`).
+- [x] `glyphcull-atlas`: font parsing (ttf-parser), exact quadratic distance, MSDF coloring +
       pseudo-distance, cubic→quadratic conversion with error bounds, rect packing, metrics table.
-- [ ] Atlas verification: reference rasterizer comparison with committed tolerances.
-- [ ] `glyphcull-cli`: `cull compile|validate|inspect`, exit codes, diagnostics.
-- [ ] Determinism suite, golden packages, stress tests, memory regression tests.
-- [ ] Documentation: pipeline architecture (Architecture.md), design rationale (DESIGN.md),
-      state-machine/transform docs, data flow diagrams.
+- [x] Atlas verification: reference rasterizer comparison with committed tolerances.
+- [x] `glyphcull-cli`: `cull compile|validate|inspect`, exit codes, diagnostics.
+- [x] Determinism suite, golden packages, stress tests, memory regression tests.
+- [x] Documentation: pipeline architecture (Architecture.md), design rationale (DESIGN.md),
+      transform docs, data flow diagrams.
 
 ## Future phase candidates (recorded, not scheduled; each requires its own design pass)
 

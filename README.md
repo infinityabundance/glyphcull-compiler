@@ -49,11 +49,28 @@ occurred. The package format is the contract. Nothing else.
 
 ## CLI
 
-`cull` (validate/inspect available; `compile` arrives in Phase 2):
+`cull`:
 
+- `cull compile <input.md|input.html> [-s style.css]... [-o out.cull]` — compile a
+  document into a `.cull` package (output defaults to stdout; images resolve relative
+  to the input file's directory).
 - `cull validate document.cull` — structural + semantic validation; exit 0/1/2
 - `cull inspect document.cull` — deterministic package diagnostics
-- `cull compile <input.md|input.html> [--style style.css] [--fonts ...] -o document.cull` (Phase 2)
+
+## Pipeline
+
+```text
+HTML / Markdown
+   → Semantic Graph (glyphcull-semantic)
+   → Chunk Graph + resolved styles (glyphcull-chunk)
+   → MSDF glyph atlases per face (glyphcull-atlas)
+   → decoded images (PNG/JPEG)
+   → INFO/CHNK/STYL/CONT/GLYF/IMGS/SEAL (glyphcull-format)
+```
+
+The four bundled Noto Sans faces (Regular/Bold/Italic/BoldItalic, SIL OFL) are
+embedded; other families are compile errors. Atlas pages are sized to each face's
+content (power-of-two, capped), so small documents produce small packages.
 
 ## Repository documents
 
