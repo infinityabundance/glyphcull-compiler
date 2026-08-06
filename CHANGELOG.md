@@ -6,6 +6,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed (0.2.0 republish — `glyphcull-cli`, `glyphcull` umbrella)
+
+- `glyphcull-cli` 0.2.0: the previously published 0.1.0 artifact predated Phase 2
+  (the `cull compile` subcommand); the current tree republishes at 0.2.0 (SemVer
+  minor for the new command). `glyphcull` (umbrella) 0.2.0 follows with the
+  pipeline re-exports and the updated CLI dependency.
+
 ### Added (Phase 0 — Foundations)
 
 - Repository scaffolding: README, Architecture.md, DESIGN.md, ROADMAP.md, TESTING.md,

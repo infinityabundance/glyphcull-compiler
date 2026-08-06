@@ -1,6 +1,8 @@
 [package]
 name = "glyphcull-cli"
-version.workspace = true
+# Republished at 0.2.0: the 0.1.0 artifact predates the Phase 2 pipeline
+# (the `cull compile` subcommand); SemVer minor bump for the new command.
+version = "0.2.0"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true

@@ -7,7 +7,9 @@
 
 [package]
 name = "glyphcull"
-version.workspace = true
+# Republished at 0.2.0: the 0.1.0 artifact predates the Phase 2 pipeline
+# re-exports and the `cull compile` command; SemVer minor bump.
+version = "0.2.0"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
@@ -23,7 +25,7 @@ exclude = ["crates/**", "docs/**", "scripts/**", "tests/**", ".github/**"]
 
 [dependencies]
 glyphcull-format = { version = "0.1.0", path = "crates/glyphcull-format" }
-glyphcull-cli = { version = "0.1.0", path = "crates/glyphcull-cli" }
+glyphcull-cli = { version = "0.2.0", path = "crates/glyphcull-cli" }
 glyphcull-pipeline = { version = "0.1.0", path = "crates/glyphcull-pipeline" }
 
 [lints]

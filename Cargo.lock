@@ -220,7 +220,7 @@ dependencies = [
 
 [[package]]
 name = "glyphcull"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "glyphcull-cli",
  "glyphcull-format",
@@ -246,7 +246,7 @@ dependencies = [
 
 [[package]]
 name = "glyphcull-cli"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "glyphcull-format",
  "glyphcull-pipeline",
