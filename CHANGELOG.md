@@ -6,6 +6,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed (0.1.1 republish — `glyphcull-format`)
+
+- `glyphcull-format` 0.1.1: the published 0.1.0 validator rejected `quote →
+  paragraph` chunk trees, but the compiler emits them (quote blocks contain
+  paragraph children). The HEAD validator (fixed in the semantic-graph-fidelity
+  commit) allows block children under `Quote`; this republish brings crates.io
+  in line with the tree. Also includes an intra-doc-link cleanup in `util.rs`.
+  Downstream requirement `0.1.0` (caret) resolves to 0.1.1, so no other crate
+  needs a version bump.
+
 ### Changed (0.2.0 republish — `glyphcull-cli`, `glyphcull` umbrella)
 
 - `glyphcull-cli` 0.2.0: the previously published 0.1.0 artifact predated Phase 2

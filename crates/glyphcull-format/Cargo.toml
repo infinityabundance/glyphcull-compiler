@@ -1,6 +1,10 @@
 [package]
 name = "glyphcull-format"
-version.workspace = true
+# 0.1.1: the validator now allows block children under Quote (quote →
+# paragraph trees, which the compiler emits); 0.1.0 rejected them, so the
+# published validator disagreed with the compiler's output. Plus an
+# intra-doc-link cleanup (util.rs).
+version = "0.1.1"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
