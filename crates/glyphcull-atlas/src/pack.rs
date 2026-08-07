@@ -41,13 +41,6 @@ pub fn pack_rects(rects: &[(u32, u32)], page_width: u32, page_height: u32) -> Ve
     let mut page: u16 = 0;
 
     for &(w, h) in rects {
-        if w == 0 || h == 0 {
-            // Degenerate: place at (0,0) on a fresh page (callers never
-            // produce this; defensive).
-            page = page.saturating_add(1);
-            out.push(PlacedRect { x: 0, y: 0, page });
-            continue;
-        }
         if w > page_width || h > page_height {
             // Oversized for any page: own page, top-left.
             page = page.saturating_add(1);
@@ -139,18 +132,26 @@ fn insert(skyline: &mut Vec<Segment>, x: u32, y: u32, w: u32, h: u32) {
         let overlap_start = seg.x.max(x);
         let overlap_end = seg_end.min(x + w);
         if overlap_start < overlap_end {
-            // The raised segment spans the overlap; extend the raised run.
+            // The raised segment spans the overlap; extend the raised run when
+            // it is adjacent to the previous one. NOTE: the tail below must run
+            // in every case — the `continue` in an earlier draft skipped it and
+            // dropped the skyline's coverage past `x + w`, corrupting the
+            // envelope (a later rect could then straddle the gap and overflow
+            // the page; regression-tested in `insert_preserves_full_coverage`).
+            let mut merged = false;
             if let Some(last) = new_sky.last_mut() {
                 if last.y == y + h && last.x + last.width == overlap_start {
                     last.width += overlap_end - overlap_start;
-                    continue;
+                    merged = true;
                 }
             }
-            new_sky.push(Segment {
-                x: overlap_start,
-                y: y + h,
-                width: overlap_end - overlap_start,
-            });
+            if !merged {
+                new_sky.push(Segment {
+                    x: overlap_start,
+                    y: y + h,
+                    width: overlap_end - overlap_start,
+                });
+            }
         }
         if seg_end > x + w {
             new_sky.push(Segment {
@@ -268,5 +269,61 @@ mod tests {
         assert_eq!(sky[0].y, 10);
         assert_eq!(sky[0].width, 10);
         assert_eq!(sky[1].x, 10);
+    }
+
+    #[test]
+    fn insert_preserves_full_coverage() {
+        // Regression: the merge path used to `continue` past the tail handling,
+        // dropping the skyline's coverage past `x + w`. The sequence below
+        // triggers the merge (the raised overlap extends the previous raised
+        // run) AND needs the tail (the current segment extends past `x + w`),
+        // which is exactly the case that lost the tail.
+        let mut sky: Vec<Segment> = vec![Segment {
+            x: 0,
+            y: 0,
+            width: 100,
+        }];
+        insert(&mut sky, 0, 0, 10, 10); // (0,10,10) raised; tail (10,0,90)
+        insert(&mut sky, 10, 0, 10, 10); // overlap [10,20) merges into (0,10,20);
+                                         // the tail (20,0,80) must survive
+        assert_eq!(
+            sky,
+            vec![
+                Segment {
+                    x: 0,
+                    y: 10,
+                    width: 20
+                },
+                Segment {
+                    x: 20,
+                    y: 0,
+                    width: 80
+                }
+            ]
+        );
+        // Coverage invariant: contiguous segments covering [0, page_width).
+        let mut cursor = 0_u32;
+        for seg in &sky {
+            assert_eq!(seg.x, cursor, "skyline gap at {cursor}");
+            cursor += seg.width;
+        }
+        assert_eq!(cursor, 100);
+    }
+
+    #[test]
+    fn pack_stays_in_page_with_merges() {
+        // Regression: the corrupted skyline let a rect straddle a gap and
+        // overflow the page bottom. A row of equal-height rects forces the
+        // merge path on every insert; every rect must stay in page bounds.
+        let rects: Vec<(u32, u32)> = (0..40).map(|i| (25, 35)).collect();
+        let placed = pack_rects(&rects, 512, 512);
+        assert_eq!(placed.len(), rects.len());
+        for (i, p) in placed.iter().enumerate() {
+            let (w, h) = rects[i];
+            assert!(
+                u32::from(p.x) + w <= 512 && u32::from(p.y) + h <= 512,
+                "rect {i} at {p:?} overflows 512x512"
+            );
+        }
     }
 }

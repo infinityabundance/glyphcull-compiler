@@ -186,12 +186,18 @@ pub fn build_atlas(
     // 2. Pack boxes: heights first (packing efficiency), codepoints as the
     //    deterministic tie-break. `order` restores the codepoint sequence.
     let mut pack_input: Vec<(u32, u32, usize)> = Vec::with_capacity(work.len());
-    for (index, g) in work.iter().enumerate() {
+    for g in &work {
         let (w, h) = match &g.rendered {
             Some(r) => (u32::from(r.width), u32::from(r.height)),
             None => (1, 1),
         };
-        pack_input.push((w, h, index));
+        // The key MUST be `g.order`, not the enumerate `index`: `work` skips
+        // codepoints with no glyph in the face, so the two diverge past the
+        // first missing codepoint. Keying on `index` shifted every later
+        // placement by one (a glyph was stored at another glyph's box — wrong
+        // rendering, and out-of-page boxes once the page filled; regression:
+        // `records_map_to_their_own_placements_with_missing_codepoints`).
+        pack_input.push((w, h, g.order));
     }
     pack_input.sort_by(|a, b| {
         (b.1, a.2).cmp(&(a.1, b.2)) // height desc, then codepoint order asc
@@ -380,6 +386,48 @@ mod tests {
         let result = build_atlas(NOTO, &cps, 0, &AtlasOptions::default()).expect("atlas");
         assert!(result.missing.contains(&0x10FFFF));
         assert_eq!(result.atlas.glyphs.len(), cps.len() - 1);
+    }
+
+    #[test]
+    fn records_map_to_their_own_placements_with_missing_codepoints() {
+        // Regression: `pack_input` was keyed on the enumerate `index` instead
+        // of `g.order`. `work` skips codepoints with no glyph, so past the
+        // first missing codepoint the two diverge and every later glyph got
+        // another glyph's placement (wrong boxes, out-of-page once full).
+        // U+000A (newline) has no glyph in the bundled Noto Sans, and it sorts
+        // before every printable character here — so with it added, ALL present
+        // placements would shift under the buggy keying.
+        let present = sample_codepoints();
+        let with_gap: BTreeSet<u32> = {
+            let mut cps = present.clone();
+            cps.insert(0x0A); // no glyph; sorts first
+            cps
+        };
+        let base = build_atlas(NOTO, &present, 0, &AtlasOptions::default()).expect("base");
+        let gapped = build_atlas(NOTO, &with_gap, 0, &AtlasOptions::default()).expect("gapped");
+        assert!(gapped.missing.contains(&0x0A));
+        assert_eq!(base.atlas.glyphs.len(), present.len());
+        assert_eq!(gapped.atlas.glyphs.len(), present.len());
+        // The missing codepoint is excluded from packing, so the present glyphs'
+        // placements must be identical with or without it.
+        let by_cp = |atlas: &Atlas| -> BTreeMap<u32, (u16, u16, u16, u16, u16)> {
+            atlas
+                .glyphs
+                .iter()
+                .map(|g| {
+                    (
+                        g.codepoint,
+                        (g.box_x, g.box_y, g.box_w, g.box_h, g.page_index),
+                    )
+                })
+                .collect()
+        };
+        assert_eq!(by_cp(&base.atlas), by_cp(&gapped.atlas));
+        // And every box stays in page.
+        for g in &gapped.atlas.glyphs {
+            assert!(u32::from(g.box_x) + u32::from(g.box_w) <= gapped.atlas.page_width);
+            assert!(u32::from(g.box_y) + u32::from(g.box_h) <= gapped.atlas.page_height);
+        }
     }
 
     #[test]
