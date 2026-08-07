@@ -6,6 +6,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed (README status correction, hardening pass H4)
+
+- The README now leads with the tagline **"A compiled GPU document runtime."** and a
+  status block: v0.1 experimental infrastructure prototype; Latin-script per-codepoint
+  rendering only (complex shaping, bidi, vertical text, Indic/Arabic scripts, and full
+  international publishing are documented exclusions); not DRM; does not make scraping
+  impossible — it raises the cost of ordinary DOM-based extraction. Added the CI badge
+  and the conformance-suite link.
+
 ### Fixed (glyphcull-atlas — the glyph packer)
 
 - Two correctness bugs in the MSDF atlas packer, found by the hardening-pass CI

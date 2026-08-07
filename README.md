@@ -2,7 +2,16 @@
 
 [![CI](https://github.com/infinityabundance/glyphcull-compiler/actions/workflows/ci.yml/badge.svg)](https://github.com/infinityabundance/glyphcull-compiler/actions/workflows/ci.yml)
 
+**A compiled GPU document runtime.**
+
 The GlyphCull compiler. Translates HTML and Markdown into compiled `.cull` document packages.
+
+> **Status: v0.1 experimental infrastructure prototype.** GlyphCull currently supports
+> Latin-script, per-codepoint text rendering for MVP validation. It is not yet a production
+> typography engine for complex shaping, bidirectional text, vertical text, Indic scripts,
+> Arabic shaping, or full international publishing. GlyphCull is not DRM and does not make
+> scraping impossible; it raises the cost of ordinary DOM-based extraction by replacing HTML
+> text nodes with a compiled, streamed, GPU-rendered document runtime (see SECURITY.md).
 
 ```
 HTML / Markdown
@@ -38,6 +47,11 @@ occurred. The package format is the contract. Nothing else.
 - Byte-level specification: [`docs/format/SPEC.md`](docs/format/SPEC.md) — canonical, versioned.
 - Terminology standard: [`docs/format/GLOSSARY.md`](docs/format/GLOSSARY.md).
 - Reference implementation: `crates/glyphcull-format` (container, section codecs, validation).
+- **Conformance**: the canonical cross-reader suite lives in
+  [`glyphcull-demo/conformance/`](https://github.com/infinityabundance/glyphcull-demo/tree/main/conformance) —
+  every valid fixture must load identically in the compiler reference, the Rust runtime, and
+  the JS runtime readers, and every hostile entry must be rejected consistently
+  (`./scripts/run-conformance.sh`; CI runs it).
 
 ## Compiler guarantees
 
