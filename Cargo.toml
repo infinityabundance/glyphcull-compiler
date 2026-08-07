@@ -21,7 +21,7 @@ categories = ["encoding", "parser-implementations", "command-line-utilities"]
 readme = "README.md"
 # The umbrella package is just the re-export surface; the pipeline crates are
 # separate packages on crates.io.
-exclude = ["crates/**", "docs/**", "scripts/**", "tests/**", ".github/**"]
+exclude = ["crates/**", "docs/**", "scripts/**", "tests/**", "release/**", ".github/**"]
 
 [dependencies]
 glyphcull-format = { version = "0.1.0", path = "crates/glyphcull-format" }
