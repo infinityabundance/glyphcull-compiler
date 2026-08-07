@@ -390,6 +390,20 @@ three channels mapped through a smoothstep with screen-space width (see GLOSSARY
 "MSDF reconstruction"). The runtime derives the mapping from `texels_per_em`, the target
 font size, and the device pixel ratio.
 
+**Sign convention (normative, canonical — every atlas generator, shader, CPU reference
+compositor, and test fixture MUST agree):**
+
+```text
+MSDF channel value < 0.5  = outside glyph
+MSDF channel value == 0.5 = glyph edge
+MSDF channel value > 0.5  = inside glyph
+```
+
+The generator stores positive distance toward the glyph interior (inside → `0.5 + dist`,
+outside → `0.5 − dist`). Every decoder maps `median − 0.5` to signed screen-space distance
+with positive = inside; no subsystem may invert this at render time to compensate for a
+non-conforming atlas (a conforming atlas never needs it).
+
 Glyph boxes include `padding` texels of SDF margin on every side; boxes never overlap and
 never cross page bounds. `box_w/box_h` count the full box (glyph + padding).
 

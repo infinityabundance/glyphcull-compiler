@@ -6,6 +6,24 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed (MSDF sign convention — the canonical direction, addendum A–M)
+
+- The atlas generator (`glyphcull-atlas/src/sdf.rs` + the exact-distance
+  helper in `correction.rs`) encoded the sign opposite to the canonical
+  convention (SPEC.md §2.5): inside ≈ 0.0, outside ≈ 1.0. Every decoder (JS
+  `render/msdf.ts`, the WebGL shader, the Canvas 2D fallback, the Rust wgpu
+  shader + CPU reconstruction, the demo reference compositor) already decoded
+  `(median − 0.5)` with positive = inside, so the inverted atlas rendered
+  glyph interiors as holes and quad exteriors as solid rectangles. The
+  compiler's own reference reconstruction (`raster.rs`) contained the
+  compensating `1.0 − smooth`, which is why the internal validation passed.
+- The generator now encodes inside > 0.5 / outside < 0.5 (canonical);
+  `raster.rs` returns `smooth` directly (no inversion). The atlas unit tests
+  were updated to assert the canonical direction.
+- Full evidence, the bug ledger, and the regression coverage are documented
+  in `glyphcull-demo/docs/rendering/MSDF-SIGN-CONVENTION.md`; the SPEC §2.5
+  sign-convention paragraph and the GLOSSARY entry are normative now.
+
 ### Added (release receipts, hardening pass H7)
 
 - `release/` — the receipt system: `templates/receipt.template.json` (the schema),

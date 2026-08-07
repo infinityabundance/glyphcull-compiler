@@ -6,8 +6,11 @@
 //! the two edges meeting at a corner always carry different colors.
 //!
 //! Distances are exact (see [`crate::geometry`]); the sign comes from the
-//! non-zero winding number of the texel center. Values saturate at the padding
-//! margin (SPEC.md §2.5: distance in texels = channel − 0.5), which is sound:
+//! non-zero winding number of the texel center. The canonical sign convention
+//! (SPEC.md §2.5, GLOSSARY: "MSDF sign convention"): **positive distance points
+//! into the glyph** — inside → `0.5 + dist` (> 0.5), outside → `0.5 − dist`
+//! (< 0.5), the edge maps to 0.5. Values saturate at the padding margin
+//! (SPEC.md §2.5: distance in texels = channel − 0.5), which is sound:
 //! beyond the margin the reconstruction only ever sees the saturated value.
 //!
 //! Direct indexing is used on the texel grid and on the fixed-size color
@@ -236,7 +239,12 @@ fn render_msdf_impl(
                     // No edge within the padding margin: saturated.
                     best = margin;
                 }
-                let signed = if inside { -best } else { best };
+                let signed = if inside { best } else { -best };
+                // Canonical sign convention (SPEC.md §2.5): inside → 0.5 + dist
+                // (> 0.5), outside → 0.5 − dist (< 0.5), edge at 0.5. The
+                // renderers decode `median − 0.5` with positive = inside; they
+                // never invert to compensate, so the atlas must encode this
+                // direction.
                 values[base + ci] = (0.5 + signed).clamp(0.0, 1.0) as f32;
             }
         }
@@ -362,32 +370,33 @@ mod tests {
         // half-integers cover [−1.5, 12.5]).
         assert_eq!(img.width, 15);
         assert_eq!(img.height, 15);
-        // Center texel (inside, far from edges): channels ~ 0.0.
+        // Center texel (inside, far from edges): channels ~ 1.0 — the
+        // canonical convention (SPEC.md §2.5): inside > 0.5.
         let off = (7 * usize::from(img.width) + 7) * 4;
-        assert!(img.pixels[off] < 10, "inside channel R");
-        assert!(img.pixels[off + 1] < 10);
-        assert!(img.pixels[off + 2] < 10);
+        assert!(img.pixels[off] > 240, "inside channel R");
+        assert!(img.pixels[off + 1] > 240);
+        assert!(img.pixels[off + 2] > 240);
         assert_eq!(img.pixels[off + 3], 255);
-        // Corner texel: beyond the padding margin → saturated 1.0.
-        assert!(img.pixels[0] > 240, "outside channel R");
+        // Corner texel: beyond the padding margin → saturated 0.0 (outside).
+        assert!(img.pixels[0] < 15, "outside channel R");
         // Gradient across the left edge (font x=0 sits between texel 1
         // (center −0.5) and texel 2 (center +0.5)).
         let mid_y = 7_usize;
         let row = |x: usize| img.pixels[(mid_y * usize::from(img.width) + x) * 4];
-        assert!(row(1) > 240, "one texel left of the edge");
-        assert!(row(2) < 15, "one texel right of the edge");
+        assert!(row(1) < 15, "one texel left of the edge (outside)");
+        assert!(row(2) > 240, "one texel right of the edge (inside)");
     }
 
     #[test]
     fn msdf_sign_flips_across_edge() {
         let img = render_msdf(&square_outline(), 1.0, 2.0).expect("render");
-        // Row through the middle: left of the left edge → outside (1.0);
-        // between edges → inside (0.0); right of right edge → outside.
+        // Row through the middle: left of the left edge → outside (0.0);
+        // between edges → inside (1.0); right of right edge → outside.
         let mid_y = 7_usize;
         let row = |x: usize| img.pixels[(mid_y * usize::from(img.width) + x) * 4];
-        assert!(row(0) > 240); // padding region, outside (distance 1.5)
-        assert!(row(6) < 40); // inside (distance 4.5 → saturated 0)
-        assert!(row(13) > 240); // right padding, outside (distance 1.5)
+        assert!(row(0) < 40); // padding region, outside (distance 1.5)
+        assert!(row(6) > 215); // inside (distance 4.5 → saturated 1)
+        assert!(row(13) < 40); // right padding, outside (distance 1.5)
     }
 
     #[test]
@@ -421,9 +430,9 @@ mod tests {
         let img = render_msdf(&diamond, 1.0, 2.0).expect("render");
         assert_eq!(img.width, 15);
         assert_eq!(img.height, 15);
-        // Center: inside.
+        // Center: inside → saturated 1.0 (canonical sign).
         let cx = 7_usize;
         let off = (7 * usize::from(img.width) + cx) * 4;
-        assert!(img.pixels[off] < 40);
+        assert!(img.pixels[off] > 215);
     }
 }

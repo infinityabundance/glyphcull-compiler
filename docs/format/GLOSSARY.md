@@ -32,6 +32,7 @@ are forbidden.
 | **evict** | Return a chunk's resources after the cooling period | free, delete, garbage collect |
 | **atlas** | MSDF glyph atlas (or image atlas) | texture page, sprite sheet (in docs) |
 | **SDF / MSDF** | (Multi-channel) signed distance field | distance map |
+| **MSDF sign convention** | The canonical direction of an MSDF channel (SPEC.md §2.5, normative): **< 0.5 outside glyph, == 0.5 glyph edge, > 0.5 inside glyph**. Positive distance points into the glyph. Every generator, shader, CPU reference compositor, and fixture agrees; no subsystem inverts at render time. | — |
 | **reference rasterizer** | The deterministic CPU rasterizer used for validation | golden renderer, software renderer |
 | **glyph instance** | One positioned glyph occurrence in layout | character box, glyph quad |
 

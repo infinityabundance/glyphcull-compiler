@@ -130,7 +130,11 @@ pub fn msdf_coverage_offset(
             let t = (median - (0.5 - half)) / (2.0 * half);
             let t = t.clamp(0.0, 1.0);
             let smooth = t * t * (3.0 - 2.0 * t);
-            out[j * width + i] = (1.0 - smooth) as f32;
+            // Canonical decode (SPEC.md §2.5): the median maps through the
+            // smoothstep directly — positive distance (inside, > 0.5) is
+            // coverage 1. The reference renderer validates the real convention;
+            // it must never invert here to "fix" a non-conforming atlas.
+            out[j * width + i] = smooth as f32;
         }
     }
     out

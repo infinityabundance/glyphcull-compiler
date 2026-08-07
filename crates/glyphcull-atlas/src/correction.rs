@@ -69,7 +69,9 @@ fn median3(a: f32, b: f32, c: f32) -> f32 {
 }
 
 /// The exact signed distance (in texels) from `p` to the outline (non-zero
-/// winding rule), mapped to the channel domain (0.5 at the edge).
+/// winding rule), mapped to the channel domain (0.5 at the edge). The sign
+/// follows the canonical convention (SPEC.md §2.5): positive toward the glyph
+/// interior — inside → `0.5 + dist` (> 0.5), outside → `0.5 − dist` (< 0.5).
 fn shape_distance(p: Point, contours: &[ColoredContour]) -> f64 {
     let mut best = f64::INFINITY;
     let mut winding = 0_i32;
@@ -93,7 +95,7 @@ fn shape_distance(p: Point, contours: &[ColoredContour]) -> f64 {
             }
         }
     }
-    let signed = if winding != 0 { -best } else { best };
+    let signed = if winding != 0 { best } else { -best };
     (0.5 + signed).clamp(0.0, 1.0)
 }
 
@@ -636,8 +638,9 @@ mod tests {
 
     #[test]
     fn well_behaved_grid_is_untouched() {
-        // A flat grid (all texels deep inside): the pass must not modify it.
-        let mut values = vec![0.1_f32; 12 * 12 * 3];
+        // A flat grid (all texels deep inside — canonical sign: 0.9): the pass
+        // must not modify it.
+        let mut values = vec![0.9_f32; 12 * 12 * 3];
         let contours = square_contours();
         let before = values.clone();
         let (base, shape) = correct_msdf(
