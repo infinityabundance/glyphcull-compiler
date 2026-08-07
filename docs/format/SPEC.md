@@ -4,7 +4,9 @@
 `crates/glyphcull-format`. The JS and Rust runtimes implement *independent* readers from this
 specification, which is how the contract is validated.
 
-- Status: **Draft v1** (Phase 0). Finalized in Phase 1 against the reference implementation.
+- Status: **v1 — locked** (hardening pass, 2026-08-07): the v1 byte layout, the reader
+  rules (§1.6), and the compatibility policy (§4) are the contract; changes within v1
+  and changes requiring v2 are defined in §4.8 and recorded in §7.
 - Byte order: **little-endian** throughout. All integers are unsigned unless stated.
 - All text is UTF-8. All text content is NFC-normalized.
 - Version: 1 (single u16; any incompatible change requires a new version number).
@@ -449,35 +451,192 @@ failure. Signature support (authenticity) is a reserved future extension of SEAL
 - Text normalized (NFC) before emission.
 - Consequence: identical input + identical compiler version ⇒ identical bytes.
 
-## 4. Versioning policy
+## 4. Compatibility policy (normative)
 
-- Version `1` is the current format. The version number changes whenever the byte layout
-  changes incompatibly. Additive, ignorable extensions (new section kinds, new property
-  tags that preserve documented defaults) MAY target the current version only with an
-  explicit policy decision recorded here; readers are required to skip unknown section
-  kinds, and unknown property tags within a StyleRecord are an error in v1 (strict), so
-  property additions require a version bump.
-- Readers MUST reject `version != 1` in v1 with `UnsupportedVersion`.
-- **Compatibility policy (normative, hardening pass 2026-08-07)**:
-  - Within v1, minor-compatible additions are **noncritical sections** (unknown kinds,
-    flags bit 0 clear): old readers skip them, so a v1 package carrying them is fully
-    readable by every v1 reader (a "future minor-compatible package").
-  - A **critical unknown section** requires the next major version: old readers reject it
-    rather than silently dropping semantics.
-  - Canonical section order is part of the v1 contract (see §1.6 rule 8): writers must
-    emit it; readers must reject its violation. A policy reversal from the Phase-1 draft,
-    which left order to the writer only — recorded in §7 so the change is auditable. The
-    rationale: canonical serialization (a §3 determinism guarantee) is only enforceable
-    if readers treat non-canonical order as malformed.
-  - INFO is the container-required section (rule 9); CHNK/STYL/CONT/GLYF are required per
-    the INFO counts; IMGS is optional (absent for image-free documents); SEAL is optional
-    (verification is mandatory when present).
+This section is the format's compatibility contract: what may change within v1, what
+requires v2, and what every reader/writer MUST do. It consolidates the normative rules of
+§1–§3 into one policy; where a rule is stated here and in §1–§3, both statements bind.
+
+### 4.1 Format versioning
+
+- The header `version` field is the package's format version; it is currently `1`
+  (§1.1). The version number changes whenever the byte layout changes incompatibly —
+  the version is the compatibility boundary, not a build counter.
+- A package's `format_version` inside INFO (§2.1) must equal the header version; a
+  mismatch is a malformed package (rejected).
+- Readers MUST reject any `version != 1` in a v1 reader with `unsupported-version`
+  (§1.6 rule 1). A v2 reader that can read v1 packages is required to do so (§4.7);
+  this spec documents v1 only.
+
+### 4.2 Reader behavior (normative)
+
+A conforming v1 reader MUST implement §1.6 verbatim: validate magic, version, header
+CRC, table bounds, per-entry bounds and flags, decode + CRC each payload, enforce
+canonical order and the required INFO section, verify SEAL when present, and never
+panic — every failure is a typed error with a precise variant. Readers enforce the
+limits of §1.3 and the rejection rules of §4.10 before interpreting any payload.
+
+### 4.3 Writer behavior (normative)
+
+A conforming v1 writer MUST:
+
+- emit exactly the canonical section order `INFO, CHNK, STYL, CONT, GLYF, IMGS, SEAL`
+  (§1.4), each section kind at most once;
+- emit `flags = 0` for every section in v1 (no reserved bits, no critical bit on known
+  kinds — §1.2.1);
+- emit `compression` per §1.5 (zlib for INFO/CHNK/STYL/CONT; none for GLYF/IMGS/SEAL)
+  with the fixed level/strategy and a correct `decoded_len`;
+- write INFO (required), CHNK/STYL/CONT/GLYF per the INFO counts, IMGS when the
+  document has images, and SEAL when the writer ships integrity (writers SHOULD always
+  ship SEAL — see §2.7 and §5);
+- produce deterministic bytes per §3, and validate its own output against the
+  rejection rules of §4.10 before emitting (a writer never emits a package its own
+  reader rejects).
+
+### 4.4 Required and optional sections
+
+- **Required at the container**: `INFO` (kind 1) — a package without it is rejected
+  (`missing-required-section`, §1.6 rule 9).
+- **Required per the INFO counts**: `CHNK` (`chunk_count` > 0), `STYL`
+  (`style_count` > 0), `CONT` (`content_count` > 0), `GLYF` (`atlas_count` > 0) —
+  the semantic layer enforces consistency between the counts and the sections
+  present (§2.1).
+- **Optional**: `IMGS` (absent for image-free documents; `image_count` must be 0 then)
+  and `SEAL` (verification is mandatory when present; absence means no integrity
+  check beyond the per-section CRC-32s).
+- Unknown kinds are never "required" by a v1 reader (they are skipped or rejected per
+  §1.2.1); a future writer that needs a mandatory extension must use the critical bit
+  or bump the version (§4.8).
+
+### 4.5 Unknown section handling; critical vs noncritical extensions
+
+Bit 0 of the section entry `flags` byte is the `critical` bit (§1.2.1), meaningful only
+on unknown kinds:
+
+| Unknown kind, flags bit 0 | Reader action | Example |
+|---|---|---|
+| clear (noncritical) | MUST skip (never interpret), MUST NOT reject for its presence | `future-minor` conformance fixture |
+| set (critical) | MUST reject with `unknown-critical-section` | `unknown-critical-section` corpus entry |
+
+Known kinds with any flags set, and reserved flag bits 1–7, are malformed (rejected).
+Noncritical sections are addressable through the table, so a skipped section never
+invalidates offsets or lengths; the SEAL `overall_hash` covers sections by kind
++ decoded payload, so an added noncritical section simply adds a covered entry
+(§2.7).
+
+### 4.6 Forward compatibility
+
+"Forward" = a newer package read by an older reader.
+
+- An older v1 reader MUST load, unchanged, any v1 package whose only additions are
+  **noncritical unknown sections** — this is the "future minor-compatible package"
+  (the `future-minor` fixture proves it: its canonical model equals the minimal
+  fixture's).
+- An older v1 reader MUST reject, loudly and with a typed error, any package carrying
+  a **critical unknown section**: silently dropping a mandatory extension is worse
+  than failing (§4.8).
+- An older reader MUST reject `version != 1` (§4.1) rather than guess at the layout.
+- Unknown property tags inside a known StyleRecord are an error in v1 (strict — §4.8).
+
+### 4.7 Backward compatibility
+
+"Backward" = an older package read by a newer reader.
+
+- A v1 package is the floor: a v1 reader accepts all v1 packages; a v2 reader MUST
+  accept every v1 package exactly as a v1 reader does (v1 is never orphaned).
+- New versions MUST NOT reinterpret bytes that a v1 reader accepted (no silent
+  semantic change to known sections).
+- Within v1, a reader that understands a previously-unknown noncritical section MAY
+  interpret it; a reader that does not MUST skip it (§4.5). No reader may fail a v1
+  package for carrying sections it merely does not know.
+
+### 4.8 What may change within v1; what requires v2
+
+| Change | Within v1 | Requires v2 |
+|---|---|---|
+| New **noncritical** section kind (unknown to old readers, skipped) | Allowed — the forward-compatibility mechanism | No |
+| New **critical** section kind | No | Yes — old readers reject it rather than drop semantics |
+| New property tag inside a known StyleRecord | No (v1 is strict: unknown tags are an error) | Yes |
+| New StyleRecord/CHNK/CONT/GLYF/IMGS field, changed width, or reordered records | No | Yes |
+| New compression method code | No | Yes (§1.5; readers reject unknown codes) |
+| Relaxed/raised §1.3 limits | No — limits are part of the v1 contract | Yes |
+| Changed canonical order / required-section set | No | Yes (§1.6 rules 8–9) |
+| SEAL mode/algo change | No (mode 1, algo 0 only) | Yes (§2.7) |
+| Reserved flag bit repurposed | No | Yes (bits 1–7 are rejected today, §1.2.1) |
+| Bug fixes that change emitted bytes but not the layout | Allowed — recorded in §7; packages stay valid, readers stay able to load both | No |
+
+Every within-v1 change MUST be recorded in §7 (History) with the date and the
+conformance fixture that proves it — the extension register (§6) tracks reserved and
+candidate kinds. Within-v1 changes MUST NOT break determinism (§3) or the canonical
+model.
+
+### 4.9 Canonical serialization and determinism
+
+- Canonical serialization is part of the v1 contract: canonical section order (§1.4),
+  records by id, properties by tag, kerning by key, sorted JSON keys (§3). Writers MUST
+  emit it; readers MUST reject known sections in any other relative order (§1.6 rule
+  8). Rationale: determinism (§3) is only enforceable if non-canonical order is
+  malformed, not merely discouraged.
+- Determinism is normative for writers (§3): identical input + identical compiler
+  version ⇒ identical bytes. No timestamps, randomness, or environment-dependent
+  values — INFO's metadata is derived from content or configuration only (§2.1). The
+  conformance suite regenerates every artifact and asserts byte-stability.
+
+### 4.10 Rejection requirements
+
+A conforming reader MUST reject, with a typed error and a precise cause, and never
+crash:
+
+- bad magic, unsupported version, header-CRC mismatch (§1.6 rules 1–2);
+- table/entry bounds violations, `offset + stored_len > file_size` (overflow-checked),
+  unknown compression codes, `decoded_len` over the §1.3 cap, reserved/flag
+  violations, critical unknown sections (§1.6 rules 3–4, §1.2.1);
+- payload decode failures: zlib header/Adler-32/CRC-32 mismatch, decoded length ≠
+  `decoded_len` (§1.5, §1.6 rule 5–6);
+- duplicate section kinds, non-canonical known-section order, missing INFO (§1.6
+  rules 7–9);
+- SEAL mismatch when SEAL is present (§2.7).
+
+The rejection class per case is fixed (the conformance suite commits the reference
+class per hostile entry in `expected/*.reject.json` and asserts all three readers
+agree).
+
+### 4.11 Security and resource limits
+
+- §1.3 limits are enforced by every reader **before** interpretation (bounds, CRC,
+  length caps); a hostile package cannot force unbounded allocation or oversized
+  decode (§5).
+- The package format carries no executable content, no paths, no source comments, no
+  timestamps (§3, §5); SEAL verification is mandatory when present; signature support
+  is a reserved SEAL extension (§2.7).
+
+### 4.12 Compression, checksum, and seal rules
+
+- Compression: zlib wrapper (RFC 1950), deflate, fixed level 9 / fixed strategy;
+  `decoded_len` authoritative; two-byte zlib header and trailing Adler-32 verified
+  (§1.5). Unknown compression codes rejected (§4.10).
+- Checksums: header CRC-32 over bytes `0..12` (§1.1); per-section CRC-32 over the
+  **decoded** payload (§1.2); Adler-32 within each zlib stream (§1.5).
+- SEAL: content hash tree (mode 1, SHA-256) with per-section hashes and the
+  non-circular overall hash (§2.7); verification mandatory when present; mismatch ⇒
+  `seal-mismatch` rejection.
+
+### 4.13 Experimental sections
+
+- Experimental kinds are authored as **noncritical** sections (bit 0 clear) so no v1
+  reader is harmed by their presence, and are registered in §6 with a status;
+  a noncritical section that becomes mandatory semantics MUST be re-filed as
+  critical — which requires v2 (§4.8).
+- Reserved ranges (section kinds 8..=31, property tags 17..=255) are not
+  experimental playgrounds: writers MUST NOT emit them without a §7 record and a
+  conformance fixture.
 
 ## 5. Security notes
 
 Summarized from SECURITY.md: readers validate structure before interpretation (bounds,
 CRC, length caps), never panic, enforce the limits of §1.3, and treat SEAL verification as
-mandatory when present. Compilers never embed source paths, comments, or timestamps.
+mandatory when present (the full rejection set is §4.10 and the resource limits are §4.11).
+Compilers never embed source paths, comments, or timestamps.
 
 ## 6. Extension register
 
@@ -515,3 +674,14 @@ mandatory when present. Compilers never embed source paths, comments, or timesta
   - Canonical known-section order is now a reader requirement (§1.6 rule 8) — a reversal
     of the Phase-1 note that readers "must not depend on order"; recorded here per §4.
   - INFO defined as the container-required section (rule 9).
+  - §4 expanded into the full compatibility policy: versioning (§4.1), reader/writer
+    behavior (§4.2/§4.3), required/optional sections (§4.4), unknown-section handling
+    (§4.5), forward/backward compatibility (§4.6/§4.7), the explicit within-v1 vs v2
+    change table (§4.8), canonical serialization + determinism (§4.9), rejection
+    requirements (§4.10), security/resource limits (§4.11), compression/checksum/seal
+    rules (§4.12), and experimental-section rules (§4.13).
+  - Compatibility conformance fixtures committed (H2/H6): `future-minor` (unknown
+    noncritical section loads unchanged), `unknown-critical-section`, `bad-version`,
+    `bad-compression`, `oversized-section`, `bad-crc`, `bad-seal` — the nine-case
+    v1-compatibility matrix proven across all three readers (see
+    `glyphcull-demo/conformance/`).

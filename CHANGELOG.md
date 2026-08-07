@@ -6,6 +6,23 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed (the `.cull` v1 compatibility policy, hardening pass H6)
+
+- `docs/format/SPEC.md` §4 is now the full compatibility policy: format versioning
+  (§4.1), reader behavior (§4.2), writer behavior (§4.3), required/optional sections
+  (§4.4), unknown-section handling and the critical bit (§4.5), forward and backward
+  compatibility (§4.6/§4.7), the explicit **within-v1 vs v2 change table** (§4.8),
+  canonical serialization + determinism (§4.9), rejection requirements (§4.10),
+  security/resource limits (§4.11), compression/checksum/SEAL rules (§4.12), and
+  experimental-section rules (§4.13). The spec header now reads **"v1 — locked"**;
+  the change is recorded in §7.
+- No code changes: the rules were implemented in hardening pass H2 (the critical bit,
+  canonical order, required INFO — `glyphcull-format` 0.1.2) and are proven by the
+  nine-case v1-compatibility matrix in `glyphcull-demo/conformance/` (valid fixtures
+  + `future-minor` + hostile `unknown-critical-section` / `bad-version` /
+  `bad-compression` / `oversized-section` / `bad-crc` / `bad-seal`), which CI runs
+  on every push.
+
 ### Changed (README status correction, hardening pass H4)
 
 - The README now leads with the tagline **"A compiled GPU document runtime."** and a
