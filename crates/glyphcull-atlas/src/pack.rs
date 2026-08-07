@@ -315,7 +315,7 @@ mod tests {
         // Regression: the corrupted skyline let a rect straddle a gap and
         // overflow the page bottom. A row of equal-height rects forces the
         // merge path on every insert; every rect must stay in page bounds.
-        let rects: Vec<(u32, u32)> = (0..40).map(|i| (25, 35)).collect();
+        let rects: Vec<(u32, u32)> = (0..40).map(|_| (25, 35)).collect();
         let placed = pack_rects(&rects, 512, 512);
         assert_eq!(placed.len(), rects.len());
         for (i, p) in placed.iter().enumerate() {
