@@ -37,6 +37,25 @@ and tests.
 4. Update documentation in the same change.
 5. Open a PR; describe the change, the evidence (measurements), and the documentation delta.
 
+### CI
+
+The GitHub Actions workflow (`.github/workflows/ci.yml`) runs the same gate from a clean
+checkout on every push to `main` and every pull request:
+
+- `cargo fmt --check`, `cargo clippy --all-targets --all-features`
+- `cargo build --workspace --all-targets`
+- `cargo test --all --all-targets`
+- `cargo doc --all --no-deps` (the `missing_docs = deny` lint keeps every public item
+documented — the API-expansion guard)
+- `cargo bench --all -- --test` (bench smoke)
+- `cargo package --workspace --dry-run` (every crate packages cleanly — the release gate)
+- `./scripts/check-golden.sh && ./scripts/check-goldens.sh` (byte-exact golden invariants)
+- `./scripts/ci-smoke.sh` (the CLI end to end: Markdown + HTML compile → `cull validate` →
+  `cull inspect` → double-compile determinism)
+
+CI is the release gate: a workflow must be green before a crate is published (`cargo
+publish`), and `cargo package --dry-run` must pass for the exact tree being published.
+
 ## 4. Review requirements
 
 - Behavior changes must include before/after evidence (measurements, diffs of golden bytes).

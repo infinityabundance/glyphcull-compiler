@@ -1,5 +1,7 @@
 # glyphcull-compiler
 
+[![CI](https://github.com/infinityabundance/glyphcull-compiler/actions/workflows/ci.yml/badge.svg)](https://github.com/infinityabundance/glyphcull-compiler/actions/workflows/ci.yml)
+
 The GlyphCull compiler. Translates HTML and Markdown into compiled `.cull` document packages.
 
 ```

@@ -6,6 +6,24 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed (glyphcull-atlas — the glyph packer)
+
+- Two correctness bugs in the MSDF atlas packer, found by the hardening-pass CI
+  smoke (a plain Markdown document failed the compiler's own self-validation
+  with an out-of-page glyph box):
+  - `pack::insert` dropped the skyline's tail when the raised overlap merged
+    into the previous raised run (a stray `continue`), corrupting the envelope
+    so a later rect could straddle the gap and overflow the page.
+  - `build_atlas` keyed the placement map on the enumerate `index` over `work`
+    instead of `g.order`; `work` skips codepoints with no glyph (e.g. U+000A,
+    absent from the bundled Noto Sans), so past the first missing codepoint
+    every glyph was recorded at another glyph's box.
+  Regression tests: `insert_preserves_full_coverage`,
+  `pack_stays_in_page_with_merges`, and
+  `records_map_to_their_own_placements_with_missing_codepoints`. `golden.cull`
+  regenerated (the old bytes encoded the buggy layout; deliberate golden
+  change).
+
 ### Changed (0.1.1 republish — `glyphcull-format`)
 
 - `glyphcull-format` 0.1.1: the published 0.1.0 validator rejected `quote →
