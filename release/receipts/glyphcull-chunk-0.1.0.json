@@ -3,10 +3,10 @@
   "repository": "https://github.com/infinityabundance/glyphcull-compiler.git",
   "package": "glyphcull-chunk",
   "version": "0.1.0",
-  "git_commit": "6e979f6c7f732252a49bc633ef884f4aba52eb03",
+  "git_commit": "eaf89585921d97c79a8d51545a4d64f4bf1917b3",
   "git_tree_clean": true,
-  "source_archive_hash": "f0e4c7aab0b260fd9c6c47b0600bb890c12eec8e112813d26dd96e32b087e8c7",
-  "package_archive_hash": "108058da438917ac731310cf06c68ccf9cfd8c86e72d0a9ad043b8e77ba631bb",
+  "source_archive_hash": "5cfe6812b855c2bedc5bf799c1edd26d2047aff1612904a3048fcd89a4f2fc37",
+  "package_archive_hash": "b1329f956d56456c3593e856334d47c4fb5bb26584305163986a27cac4ac7338",
   "toolchain": {
     "rust": "rustc 1.96.0 (ac68faa20 2026-05-25)",
     "cargo": "cargo 1.96.0 (30a34c682 2026-05-25)",
@@ -25,5 +25,5 @@
     "conformance": "pass",
     "package_dry_run": "pass"
   },
-  "release_timestamp": "2026-08-07T19:00:12Z"
+  "release_timestamp": "2026-08-07T19:14:26Z"
 }

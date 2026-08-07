@@ -3,10 +3,10 @@
   "repository": "https://github.com/infinityabundance/glyphcull-compiler.git",
   "package": "glyphcull-format",
   "version": "0.1.2",
-  "git_commit": "6e979f6c7f732252a49bc633ef884f4aba52eb03",
+  "git_commit": "eaf89585921d97c79a8d51545a4d64f4bf1917b3",
   "git_tree_clean": true,
-  "source_archive_hash": "f0e4c7aab0b260fd9c6c47b0600bb890c12eec8e112813d26dd96e32b087e8c7",
-  "package_archive_hash": "698921d93799a53a2dd5e9f4e100bf03481979d58ebe6985fbaba8246473795a",
+  "source_archive_hash": "5cfe6812b855c2bedc5bf799c1edd26d2047aff1612904a3048fcd89a4f2fc37",
+  "package_archive_hash": "184b3e716eb9607a9dbf31afef38f51f7bfc8d61c442f48d0a3262f5fe8c0951",
   "toolchain": {
     "rust": "rustc 1.96.0 (ac68faa20 2026-05-25)",
     "cargo": "cargo 1.96.0 (30a34c682 2026-05-25)",
@@ -25,5 +25,5 @@
     "conformance": "pass",
     "package_dry_run": "pass"
   },
-  "release_timestamp": "2026-08-07T18:59:43Z"
+  "release_timestamp": "2026-08-07T19:14:00Z"
 }
