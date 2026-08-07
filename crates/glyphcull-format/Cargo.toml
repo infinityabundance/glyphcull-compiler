@@ -4,7 +4,10 @@ name = "glyphcull-format"
 # paragraph trees, which the compiler emits); 0.1.0 rejected them, so the
 # published validator disagreed with the compiler's output. Plus an
 # intra-doc-link cleanup (util.rs).
-version = "0.1.1"
+# 0.1.2: the v1 compatibility rules (hardening pass) — flags bit 0 = critical
+# (unknown noncritical sections skipped, critical ones rejected),
+# canonical known-section order enforced, INFO required at the container.
+version = "0.1.2"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
