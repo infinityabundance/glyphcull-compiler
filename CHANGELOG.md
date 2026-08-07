@@ -6,6 +6,25 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added (release receipts, hardening pass H7)
+
+- `release/` — the receipt system: `templates/receipt.template.json` (the schema),
+  `scripts/generate-release-receipt.sh` (dirty-tree-refusing; records commit,
+  deterministic source-tree hash, the real `cargo package` tarball hash, toolchain,
+  commands, results, UTC timestamp), `scripts/check-release-receipts.sh` (`--fast` CI
+  gate; `--full` recomputes every package hash from a git worktree of its recorded
+  commit — proving reproducibility), and `scripts/release-dry-run.sh` (all seven
+  crates assemble in release order).
+- `release/receipts/` — committed receipts for all seven published crates
+  (`glyphcull-format` 0.1.2, `glyphcull-semantic`/`glyphcull-chunk`/`glyphcull-atlas`/
+  `glyphcull-pipeline` 0.1.0, `glyphcull-cli` 0.1.0/0.2.0, `glyphcull` 0.2.0) with
+  build/test/conformance/package gates recorded as pass (full gates re-run at
+  generation).
+- The umbrella crate's `exclude` list now covers `release/**` (repo metadata is not
+  crate content).
+- CI: the `gate` job runs `release/scripts/check-release-receipts.sh --fast`.
+  `release/README.md` documents the release order and the receipt contract.
+
 ### Changed (the `.cull` v1 compatibility policy, hardening pass H6)
 
 - `docs/format/SPEC.md` §4 is now the full compatibility policy: format versioning

@@ -33,6 +33,8 @@ jobs:
         run: cargo bench --all -- --test
       - name: Package dry-run (every crate packages cleanly)
         run: ./scripts/ci-package.sh
+      - name: Release receipts (schema, git, source-hash honesty, completeness)
+        run: release/scripts/check-release-receipts.sh --fast
       - name: Golden byte-exactness
         run: |
           ./scripts/check-golden.sh
