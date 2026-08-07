@@ -100,6 +100,10 @@ pub fn parse(bytes: &[u8]) -> Result<ParsedPackage> {
     // Decode payloads with validation, preserving file order.
     let mut known: BTreeMap<SectionKind, DecodedSection> = BTreeMap::new();
     let mut unknown: Vec<(u32, DecodedSection)> = Vec::new();
+    // Canonical-order enforcement for the known sections (SPEC.md §1.6): their
+    // kinds must be strictly increasing in file order. Unknown kinds may appear
+    // anywhere and are skipped (noncritical) or rejected (critical bit set).
+    let mut last_known: Option<u32> = None;
     for entry in &entries {
         let end = entry
             .offset
@@ -144,12 +148,36 @@ pub fn parse(bytes: &[u8]) -> Result<ParsedPackage> {
         };
         match entry.known_kind() {
             Some(kind) => {
-                if known.insert(kind, decoded).is_some() {
+                if known.contains_key(&kind) {
                     return Err(Error::DuplicateSection { kind: entry.kind });
                 }
+                let kind_num = kind.to_u32();
+                if let Some(previous) = last_known {
+                    if kind_num <= previous {
+                        return Err(Error::InvalidSectionOrder {
+                            kind: entry.kind,
+                            previous,
+                        });
+                    }
+                }
+                last_known = Some(kind_num);
+                known.insert(kind, decoded);
             }
-            None => unknown.push((entry.kind, decoded)),
+            None => {
+                // Unknown kind: noncritical (flags bit 0 clear) sections are
+                // skipped for forward compatibility; a critical unknown section
+                // is rejected (SPEC.md §1.2, §4).
+                if entry.flags & 0x01 != 0 {
+                    return Err(Error::UnknownCriticalSection { kind: entry.kind });
+                }
+                unknown.push((entry.kind, decoded));
+            }
         }
+    }
+
+    // INFO is the required section: every conforming v1 package carries it.
+    if !known.contains_key(&SectionKind::Info) {
+        return Err(Error::MissingSection { what: "INFO" });
     }
 
     // Verify SEAL when present: it covers every other section.
@@ -274,23 +302,112 @@ mod tests {
     }
 
     #[test]
-    fn section_ordering_not_required() {
-        // The reader consumes the table, so section order in the file does not
-        // matter; the writer always emits canonical order, but a conforming reader
-        // must not depend on it.
+    fn canonical_order_required_and_unknown_kinds_skipped() {
+        // The writer always emits canonical order; a conforming reader enforces
+        // it for the known sections (SPEC.md §1.6). Unknown kinds may appear
+        // anywhere and are skipped.
         let mut builder = PackageBuilder::new();
-        builder
-            .add(SectionKind::Content, b"first".to_vec(), Compression::Zlib)
-            .expect("add");
         builder
             .add(SectionKind::Info, b"{\"i\":1}".to_vec(), Compression::Zlib)
             .expect("add");
-        // Builder emits canonical order (Info first) regardless of insertion order.
+        builder
+            .add(SectionKind::Content, b"first".to_vec(), Compression::Zlib)
+            .expect("add");
+        // The builder emits canonical order regardless of insertion order, so
+        // the package parses with the unknown interleaved below.
         let bytes = builder.build().expect("build");
         let pkg = parse(&bytes).expect("parse");
         assert_eq!(
             pkg.section(SectionKind::Info),
             Some(b"{\"i\":1}".as_slice())
+        );
+    }
+
+    /// Assemble raw package bytes from (kind, compression, payload) triples in
+    /// the GIVEN order (the builder always canonicalizes; this crafts arbitrary
+    /// tables for order/critical-bit tests).
+    fn raw_package(sections: &[(u32, Compression, &[u8])]) -> Vec<u8> {
+        use crate::crc32::crc32;
+        let entry_len = 32usize;
+        let mut table = Vec::new();
+        let mut stored_payloads: Vec<Vec<u8>> = Vec::new();
+        let mut offset: usize = 16 + sections.len() * entry_len;
+        for &(kind, compression, payload) in sections {
+            let stored: Vec<u8> = match compression {
+                Compression::None => payload.to_vec(),
+                Compression::Zlib => crate::compress::zlib_compress(payload).expect("zlib"),
+            };
+            let mut entry = Vec::with_capacity(entry_len);
+            entry.extend_from_slice(&kind.to_le_bytes());
+            entry.push(compression.code());
+            entry.push(0); // flags (tests patch this byte directly when needed)
+            entry.extend_from_slice(&[0, 0]); // reserved
+            entry.extend_from_slice(&(offset as u64).to_le_bytes());
+            entry.extend_from_slice(&(stored.len() as u64).to_le_bytes());
+            entry.extend_from_slice(&(payload.len() as u32).to_le_bytes());
+            entry.extend_from_slice(&crc32(payload).to_le_bytes());
+            table.extend_from_slice(&entry);
+            offset += stored.len();
+            stored_payloads.push(stored);
+        }
+        let mut out = Vec::new();
+        out.extend_from_slice(b"CULL");
+        out.extend_from_slice(&1u16.to_le_bytes()); // version
+        out.extend_from_slice(&0u16.to_le_bytes()); // flags
+        out.extend_from_slice(&(sections.len() as u32).to_le_bytes());
+        out.extend_from_slice(&0u32.to_le_bytes()); // header crc (patched below)
+        out.extend_from_slice(&table);
+        for stored in stored_payloads {
+            out.extend_from_slice(&stored);
+        }
+        let crc = crate::crc32::crc32(&out[..12]);
+        out[12..16].copy_from_slice(&crc.to_le_bytes());
+        out
+    }
+
+    #[test]
+    fn out_of_order_known_sections_rejected() {
+        // CONT (4) before INFO (1) violates canonical order: rejected even
+        // though every layer above (CRCs, bounds) is valid.
+        let bytes = raw_package(&[
+            (SectionKind::Content.to_u32(), Compression::Zlib, b"first"),
+            (SectionKind::Info.to_u32(), Compression::Zlib, b"{\"i\":1}"),
+        ]);
+        assert_eq!(
+            parse(&bytes),
+            Err(crate::error::Error::InvalidSectionOrder {
+                kind: SectionKind::Info.to_u32(),
+                previous: SectionKind::Content.to_u32(),
+            })
+        );
+    }
+
+    #[test]
+    fn unknown_critical_section_rejected_and_noncritical_skipped() {
+        // An unknown kind (8): noncritical (flags bit 0 clear) is skipped;
+        // critical (bit 0 set) is rejected (SPEC.md §1.2).
+        let info: &[(u32, Compression, &[u8])] = &[
+            (SectionKind::Info.to_u32(), Compression::Zlib, b"{\"i\":1}"),
+            (8, Compression::None, b"ext"),
+        ];
+        let mut bytes = raw_package(info);
+        let pkg = parse(&bytes).expect("noncritical unknown skipped");
+        assert_eq!(pkg.unknown.len(), 1);
+        // Set the critical bit on the unknown entry (flags byte at offset 5 of
+        // the second table entry: 16 + 32 + 5).
+        bytes[16 + 32 + 5] = 0x01;
+        assert_eq!(
+            parse(&bytes),
+            Err(crate::error::Error::UnknownCriticalSection { kind: 8 })
+        );
+    }
+
+    #[test]
+    fn missing_info_rejected() {
+        let bytes = raw_package(&[(SectionKind::Content.to_u32(), Compression::Zlib, b"c")]);
+        assert_eq!(
+            parse(&bytes),
+            Err(crate::error::Error::MissingSection { what: "INFO" })
         );
     }
 }

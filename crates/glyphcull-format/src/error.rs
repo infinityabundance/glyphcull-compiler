@@ -50,6 +50,10 @@ pub enum Error {
     },
     /// More than one section with the same kind was present.
     DuplicateSection { kind: u32 },
+    /// The known sections are not in canonical relative order (SPEC.md §1.6).
+    InvalidSectionOrder { kind: u32, previous: u32 },
+    /// An unknown section kind carries the critical flag (SPEC.md §1.2).
+    UnknownCriticalSection { kind: u32 },
     /// The payload ended before the encoded structure was complete.
     UnexpectedEof { what: &'static str },
     /// Trailing bytes remained after the encoded structure was decoded.
@@ -113,6 +117,13 @@ impl fmt::Display for Error {
                 "section kind {kind} CRC mismatch (expected {expected:#010x}, actual {actual:#010x})"
             ),
             Self::DuplicateSection { kind } => write!(f, "duplicate section kind {kind}"),
+            Self::InvalidSectionOrder { kind, previous } => write!(
+                f,
+                "section kind {kind} appears after {previous} (canonical order violated)"
+            ),
+            Self::UnknownCriticalSection { kind } => {
+                write!(f, "unknown section kind {kind} marked critical (v1 rejects unknown critical sections)")
+            }
             Self::UnexpectedEof { what } => write!(f, "unexpected end of input while decoding {what}"),
             Self::TrailingBytes { what } => write!(f, "trailing bytes after {what}"),
             Self::InvalidUtf8 => write!(f, "invalid UTF-8"),

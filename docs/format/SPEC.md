@@ -43,12 +43,28 @@ its kind, compression, byte offset, stored length, decoded length, and CRC-32 of
 |---|---|---|---|
 | 0 | 4 | `kind` | Section kind (see §2) |
 | 4 | 1 | `compression` | `0` = none, `1` = zlib (deflate, level 9) |
-| 5 | 1 | `flags` | Reserved; must be `0` in v1 |
+| 5 | 1 | `flags` | Bit 0 = `critical` (meaningful only for unknown kinds, §1.2.1); bits 1–7 reserved, must be `0` |
 | 6 | 2 | `reserved` | Must be `0` |
 | 8 | 8 | `offset` | Absolute byte offset of the stored payload |
 | 16 | 8 | `stored_len` | Byte length of the stored payload as written |
 | 24 | 4 | `decoded_len` | Byte length after decompression (`stored_len` when uncompressed) |
 | 28 | 4 | `crc32` | CRC-32 over the **decoded** payload bytes |
+
+### 1.2.1 The critical bit and unknown sections
+
+Bit 0 of a section entry's `flags` byte is the **`critical`** bit. It is meaningful only on
+sections whose kind is not defined in the current version:
+
+- **Unknown kind, critical bit clear** — a forward-compatible, ignorable extension.
+  Readers MUST skip it (never interpret it) and MUST NOT reject the package for its presence.
+- **Unknown kind, critical bit set** — an extension this reader cannot honor. Readers MUST
+  reject the package with an `unknown-critical-section` error.
+- **Known kind, any flags set** — reserved in v1; readers MUST reject.
+- Reserved bits 1–7 — always reserved; readers MUST reject.
+
+Writers in v1 emit `flags = 0` for every section. The bit exists so that a future version can
+ship a mandatory extension without breaking old readers silently: the old reader either skips
+it (noncritical) or rejects the package loudly (critical).
 
 ### 1.3 Limits (v1)
 
@@ -80,8 +96,10 @@ its kind, compression, byte offset, stored length, decoded length, and CRC-32 of
 | 7 | `SEAL` | Content hash tree (integrity) | none |
 
 Unknown kinds: readers MUST skip them (they are addressable via the table) and MUST NOT
-interpret them. At most one section per kind (duplicates are an error). Writers MUST emit
-sections in canonical order: `INFO, CHNK, STYL, CONT, GLYF, IMGS, SEAL`.
+interpret them, unless the entry's `critical` bit is set — a **critical unknown section is
+rejected** (§1.2.1). At most one section per kind (duplicates are an error). Writers MUST emit
+sections in canonical order: `INFO, CHNK, STYL, CONT, GLYF, IMGS, SEAL`; readers MUST reject
+known sections in any other relative order (§1.6).
 
 ### 1.5 Compression
 
@@ -103,11 +121,20 @@ A conforming reader MUST:
 2. Validate the header CRC-32.
 3. Validate `section_count` ≤ 64 and that the table fits within the file.
 4. For every entry: `offset + stored_len ≤ file_size` with overflow-checked arithmetic;
-   `compression ∈ {0,1}`; `decoded_len ≤ 2 GiB`; flags/reserved zero (v1).
+   `compression ∈ {0,1}`; `decoded_len ≤ 2 GiB`; flags per §1.2.1 (reserved bits zero;
+   known kinds carry no flags; critical unknown kinds rejected at §1.6.5).
 5. Decode each payload (decompressing if flagged) and verify its CRC-32.
 6. Verify that a decoded stream's length equals `decoded_len`.
 7. Reject duplicate section kinds.
-8. Never panic. Every failure is a typed error with a precise variant.
+8. **Reject known sections in non-canonical relative order** — the known kinds must appear
+   in strictly increasing kind order (`INFO, CHNK, STYL, CONT, GLYF, IMGS, SEAL`); unknown
+   kinds may appear anywhere. Rationale: canonical serialization is part of the v1 contract
+   (writers always emit it, §3), so a conforming reader enforces it; a package that violates
+   it was not produced by a conforming writer.
+9. **Reject a package without an INFO section** (`missing-required-section`): INFO is the
+   one container-required section. (The other sections are required per the INFO counts —
+   see §2.1 — enforced by the semantic layer.)
+10. Never panic. Every failure is a typed error with a precise variant.
 
 The SEAL section additionally cross-checks every section's content hash (see §2.7).
 
@@ -431,6 +458,20 @@ failure. Signature support (authenticity) is a reserved future extension of SEAL
   kinds, and unknown property tags within a StyleRecord are an error in v1 (strict), so
   property additions require a version bump.
 - Readers MUST reject `version != 1` in v1 with `UnsupportedVersion`.
+- **Compatibility policy (normative, hardening pass 2026-08-07)**:
+  - Within v1, minor-compatible additions are **noncritical sections** (unknown kinds,
+    flags bit 0 clear): old readers skip them, so a v1 package carrying them is fully
+    readable by every v1 reader (a "future minor-compatible package").
+  - A **critical unknown section** requires the next major version: old readers reject it
+    rather than silently dropping semantics.
+  - Canonical section order is part of the v1 contract (see §1.6 rule 8): writers must
+    emit it; readers must reject its violation. A policy reversal from the Phase-1 draft,
+    which left order to the writer only — recorded in §7 so the change is auditable. The
+    rationale: canonical serialization (a §3 determinism guarantee) is only enforceable
+    if readers treat non-canonical order as malformed.
+  - INFO is the container-required section (rule 9); CHNK/STYL/CONT/GLYF are required per
+    the INFO counts; IMGS is optional (absent for image-free documents); SEAL is optional
+    (verification is mandatory when present).
 
 ## 5. Security notes
 
@@ -468,3 +509,9 @@ mandatory when present. Compilers never embed source paths, comments, or timesta
 - v1, Phase 2 (compiler pipeline, implementation-driven clarifications):
   - `document_id` defined non-circularly: SHA-256 over the decoded content sections
     `CHNK, STYL, CONT, GLYF, IMGS` (INFO/SEAL excluded — see §2.1).
+- v1, hardening pass (2026-08-07, compatibility rules locked):
+  - Section entry `flags` byte: bit 0 defined as `critical` (unknown-kind semantics,
+    §1.2.1); bits 1–7 stay reserved.
+  - Canonical known-section order is now a reader requirement (§1.6 rule 8) — a reversal
+    of the Phase-1 note that readers "must not depend on order"; recorded here per §4.
+  - INFO defined as the container-required section (rule 9).

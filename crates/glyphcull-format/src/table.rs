@@ -100,7 +100,15 @@ impl SectionEntry {
         let decoded_len = u64::from(c.u32("decoded_len")?);
         let crc32 = c.u32("crc32")?;
         c.finish("section entry")?;
-        if flags != 0 || reserved != 0 {
+        // The flags byte: bit 0 is the `critical` bit, meaningful only for
+        // unknown section kinds (SPEC.md §1.2 — a critical unknown section MUST
+        // be rejected; a noncritical one is skipped). Reserved bits 1..7 must be
+        // zero, and known kinds must carry no flags at all (the writer never
+        // emits them; strictness keeps canonical packages canonical).
+        if flags & 0xFE != 0 || reserved != 0 {
+            return Err(Error::ReservedBitsSet);
+        }
+        if SectionKind::from_u32(kind).is_some() && flags != 0 {
             return Err(Error::ReservedBitsSet);
         }
         if decoded_len > MAX_SECTION_DECODED_LEN {
