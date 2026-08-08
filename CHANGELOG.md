@@ -6,6 +6,22 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed (HTML table captions compile valid packages + readable self-validation)
+
+- The HTML parser mapped `figcaption` but not `<caption>` (the HTML table-caption
+  element) to `SemanticKind::Caption`; a `<caption>` became a transparent-with-text
+  node, which the chunker wrapped into a `Paragraph` under the `Table` — and the
+  validator rejects that (`Table => TableRow only`). The Linux-wikipedia demo page
+  (a 5805-chunk article with 4 tables, 1 caption) hit this and failed the compiler's
+  own self-validation. The parser now maps `"figcaption" | "caption"` and the
+  validator allows `Table => TableRow | Caption` (SPEC.md §2.2). Regression tests:
+  `html.rs` `table_caption_is_a_caption_node`, `validate.rs`
+  `table_caption_child_is_allowed`.
+- The self-validation error surfaced the failure as `UnknownValue 0` — opaque. The
+  pipeline now reports `Error::Validation { detail }` listing up to 8 issues with
+  their section names, so a bad compile says what is wrong instead of a magic
+  number.
+
 ### Fixed (MSDF sign convention — the canonical direction, addendum A–M)
 
 - The atlas generator (`glyphcull-atlas/src/sdf.rs` + the exact-distance

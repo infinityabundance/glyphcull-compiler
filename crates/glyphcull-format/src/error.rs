@@ -82,6 +82,8 @@ pub enum Error {
     OverflowGuard,
     /// A chunk graph reference does not resolve.
     DanglingReference { what: &'static str, id: u32 },
+    /// A validation pass found issues (the detail lists them).
+    Validation { detail: String },
 }
 
 impl fmt::Display for Error {
@@ -140,6 +142,7 @@ impl fmt::Display for Error {
             Self::MissingSection { what } => write!(f, "required section missing: {what}"),
             Self::OverflowGuard => write!(f, "integer overflow in offset/length arithmetic"),
             Self::DanglingReference { what, id } => write!(f, "dangling {what} reference to id {id}"),
+            Self::Validation { detail } => write!(f, "validation failed:\n{detail}"),
         }
     }
 }

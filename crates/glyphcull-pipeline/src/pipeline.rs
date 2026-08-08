@@ -267,12 +267,15 @@ pub fn compile(
     let pkg = parse_package(&package).map_err(Error::Format)?;
     let issues = validate_package(&pkg);
     if !issues.is_empty() {
-        return Err(Error::Format(
-            glyphcull_format::error::Error::UnknownValue {
-                what: "self-validation",
-                value: 0,
-            },
-        ));
+        let detail = issues
+            .iter()
+            .take(8)
+            .map(|issue| format!("  - [{}] {}", issue.section, issue.message))
+            .collect::<Vec<_>>()
+            .join("\n");
+        return Err(Error::Format(glyphcull_format::error::Error::Validation {
+            detail: format!("self-validation found {} issue(s):\n{detail}", issues.len()),
+        }));
     }
 
     let report = CompileReport {

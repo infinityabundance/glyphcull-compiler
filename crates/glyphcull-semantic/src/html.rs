@@ -254,7 +254,7 @@ impl Builder {
                 node.hints = hints;
                 return Ok(vec![node]);
             }
-            "figcaption" => SemanticKind::Caption,
+            "figcaption" | "caption" => SemanticKind::Caption,
             "a" => SemanticKind::Link,
             "em" | "i" => SemanticKind::Emphasis,
             "strong" | "b" => SemanticKind::Strong,
@@ -421,6 +421,22 @@ mod tests {
         let out = parse_html("<style>p { color: red; }</style><p>x</p>").expect("parse");
         assert_eq!(out.stylesheets.len(), 1);
         assert!(out.stylesheets[0].contains("color: red"));
+    }
+
+    #[test]
+    fn table_caption_is_a_caption_node() {
+        // Regression: `<caption>` (the HTML table caption) must become a
+        // `Caption` semantic node — not a transparent-with-text (which the
+        // chunker would wrap into a paragraph under the table, and the
+        // validator rejects). The wiki page compiled against this.
+        let out = parse_html("<table><caption>Legend</caption><tr><td>x</td></tr></table>")
+            .expect("parse");
+        let table = &out.tree.children[0];
+        assert_eq!(table.kind, SemanticKind::Table);
+        assert_eq!(table.children.len(), 2);
+        assert_eq!(table.children[0].kind, SemanticKind::Caption);
+        assert_eq!(table.children[0].to_string(), "Legend");
+        assert_eq!(table.children[1].kind, SemanticKind::TableRow);
     }
 
     #[test]

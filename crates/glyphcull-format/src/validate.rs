@@ -579,7 +579,7 @@ fn allowed_child(parent: ChunkKind, child: ChunkKind) -> bool {
                 | Heading6
         ),
         CodeBlock | Hr | Image => false,
-        Table => child == TableRow,
+        Table => matches!(child, TableRow | Caption),
         TableRow => child == TableCell,
         TableCell => matches!(
             child,
@@ -756,6 +756,64 @@ mod tests {
         let pkg = parse(&build_package(chunks)).expect("parse");
         let issues = validate_package(&pkg);
         assert!(issues.is_empty(), "issues: {issues:?}");
+    }
+
+    #[test]
+    fn table_caption_child_is_allowed() {
+        // A `caption` chunk is a legitimate child of a `table` chunk (the HTML
+        // table caption; the wiki page compiled against this). Regression for
+        // the table-with-caption self-validation failure.
+        let table = ChunkRecord {
+            kind: ChunkKind::Table,
+            flags: flags::STRUCTURAL,
+            style_id: 0,
+            parent_id: 1,
+            prev_id: 0,
+            next_id: 0,
+            first_child_id: 3,
+            last_child_id: 4,
+            content_index: 0,
+            ordinal: 1,
+            depth: 1,
+        };
+        let caption = ChunkRecord {
+            kind: ChunkKind::Caption,
+            flags: 0,
+            style_id: 0,
+            parent_id: 2,
+            prev_id: 0,
+            next_id: 4,
+            first_child_id: 0,
+            last_child_id: 0,
+            content_index: 1,
+            ordinal: 2,
+            depth: 2,
+        };
+        let row = ChunkRecord {
+            kind: ChunkKind::TableRow,
+            flags: flags::STRUCTURAL,
+            style_id: 0,
+            parent_id: 2,
+            prev_id: 3,
+            next_id: 0,
+            first_child_id: 0,
+            last_child_id: 0,
+            content_index: 0,
+            ordinal: 3,
+            depth: 2,
+        };
+        let chunks = ChunkSection {
+            chunks: vec![doc_chunk(2), table, caption, row],
+            extras: vec![],
+        };
+        let pkg = parse(&build_package(chunks)).expect("parse");
+        let issues = validate_package(&pkg);
+        assert!(
+            !issues
+                .iter()
+                .any(|i| i.message.contains("cannot be a child")),
+            "unexpected child-kind issues: {issues:?}"
+        );
     }
 
     #[test]

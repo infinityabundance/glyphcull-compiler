@@ -28,16 +28,39 @@
 //! # Example
 //!
 //! ```
+//! use glyphcull::glyphcull_format::codec::info::Info;
 //! use glyphcull::glyphcull_format::section::SectionKind;
 //! use glyphcull::glyphcull_format::table::Compression;
 //! use glyphcull::glyphcull_format::writer::PackageBuilder;
 //! use glyphcull::glyphcull_format::parse;
 //!
+//! // INFO is the required section (SPEC.md §2.1): a conforming v1 package
+//! // carries the deterministic metadata before the content sections.
+//! let info = Info {
+//!     format_version: 1,
+//!     generator: "doctest".to_string(),
+//!     generator_version: "0.0.0".to_string(),
+//!     source_digest: "0".repeat(64),
+//!     document_id: "0".repeat(32),
+//!     title: None,
+//!     lang: None,
+//!     chunk_count: 0,
+//!     style_count: 0,
+//!     content_count: 1,
+//!     atlas_count: 0,
+//!     image_count: 0,
+//! };
 //! let mut builder = PackageBuilder::new().with_seal(true);
-//! builder.add(SectionKind::Content, b"hello".to_vec(), Compression::Zlib).expect("add");
+//! builder
+//!     .add(SectionKind::Info, info.encode(), Compression::None)
+//!     .expect("add info");
+//! builder
+//!     .add(SectionKind::Content, b"hello".to_vec(), Compression::Zlib)
+//!     .expect("add content");
 //! let bytes = builder.build().expect("build");
 //! let package = parse(&bytes).expect("valid package");
-//! assert_eq!(package.header.section_count, 2);
+//! // INFO + CONTENT + SEAL (the seal was requested above).
+//! assert_eq!(package.header.section_count, 3);
 //! ```
 
 #![forbid(unsafe_code)]
