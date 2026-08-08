@@ -10,6 +10,7 @@ are forbidden.
 | Term | Meaning | Never say |
 |---|---|---|
 | **chunk** | The atomic unit of the compiled document (Chunk Graph node) | node, element, block |
+| **caption** | A renderable chunk carrying short label text (figure captions; the HTML table `<caption>`, which both runtimes lay out above the rows) | subtitle, legend |
 | **document** | The whole compiled document instance held by a runtime | page, article |
 | **package** | The `.cull` artifact on disk / in transit | file, bundle, archive |
 | **load** | Bring a package into a runtime and validate it | parse, fetch |

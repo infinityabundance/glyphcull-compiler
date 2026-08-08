@@ -255,6 +255,9 @@ bytes data     — kind-specific (below)
 - `style_id` resolves in STYL; `content_index` resolves in CONT when non-zero
   (`content_index` is 1-based: payload id = `content_index − 1`).
 - `image` chunks must have a CONT payload of kind `image_ref`.
+- `table` children are `table_row` chunks and **at most one `caption` chunk** (the
+  HTML table caption), which must precede the rows. Both runtimes lay the caption
+  out as a text block above the rows and advance the table origin by its height.
 - Renderable chunk kinds never have renderable ancestors of kind `run`/`link`/`br`
   (inline kinds nest only under renderable block kinds or other inline kinds).
 
@@ -699,3 +702,10 @@ Compilers never embed source paths, comments, or timestamps.
     `bad-compression`, `oversized-section`, `bad-crc`, `bad-seal` — the nine-case
     v1-compatibility matrix proven across all three readers (see
     `glyphcull-demo/conformance/`).
+- v1, 2026-08-08 (table captions — implementation-driven clarification):
+  - The chunk-graph invariants (§2.2) now state that a `table` chunk holds
+    `table_row` children and **at most one `caption` child**, which must precede
+    the rows; both runtimes lay it out above the rows and advance the table
+    origin by its height. The writer (HTML `<caption>`) and the validator
+    (`cull validate`) agree; previously the parser mapped `figcaption` but not
+    `<caption>`, which compiled invalid packages.
