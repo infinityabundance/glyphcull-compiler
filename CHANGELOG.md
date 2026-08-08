@@ -6,6 +6,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed (glyphcull-format 0.1.3 — the readable self-validation error)
+
+- `glyphcull-format` 0.1.3 adds `Error::Validation { detail }` — the compiler's
+  self-validation failure now lists the issues (section + message, up to 8)
+  instead of the opaque `UnknownValue 0`. The pipeline uses it; the package
+  dry-run of `glyphcull-pipeline` (which verifies against the published format
+  crate) is why this release precedes the pipeline's.
+
 ### Fixed (HTML table captions compile valid packages + readable self-validation)
 
 - The HTML parser mapped `figcaption` but not `<caption>` (the HTML table-caption

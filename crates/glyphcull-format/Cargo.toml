@@ -7,7 +7,9 @@ name = "glyphcull-format"
 # 0.1.2: the v1 compatibility rules (hardening pass) — flags bit 0 = critical
 # (unknown noncritical sections skipped, critical ones rejected),
 # canonical known-section order enforced, INFO required at the container.
-version = "0.1.2"
+# 0.1.3: Error::Validation { detail } — the compiler's self-validation failure
+# lists the issues (section + message) instead of the opaque UnknownValue 0.
+version = "0.1.3"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
