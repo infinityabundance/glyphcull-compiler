@@ -33,7 +33,7 @@ use glyphcull_format::writer::PackageBuilder;
 use glyphcull_semantic::css::{parse_stylesheet, Stylesheet};
 use sha2::{Digest, Sha256};
 
-use crate::fonts::{FontError, FontRegistry};
+use crate::fonts::{FontError, FontRegistry, FONT_SUPPLEMENTARY_BLOCKS};
 use crate::images::{self, ImageError};
 
 /// The compile input kind.
@@ -178,9 +178,14 @@ pub fn compile(
         let page = suggest_page_size(codepoints.len());
         atlas_options.page_width = page;
         atlas_options.page_height = page;
-        let result =
-            glyphcull_atlas::build_atlas(bytes, codepoints, font_id as u32, &atlas_options)
-                .map_err(Error::Atlas)?;
+        let result = glyphcull_atlas::build_atlas_with(
+            bytes,
+            Some(FONT_SUPPLEMENTARY_BLOCKS),
+            codepoints,
+            font_id as u32,
+            &atlas_options,
+        )
+        .map_err(Error::Atlas)?;
         face_to_font.insert(face.clone(), font_id as u32);
         missing.extend(result.missing);
         atlases.push(GlyphSection {
@@ -504,6 +509,33 @@ mod tests {
         let source = "# T\n\n\u{10FFFF} text\n";
         let (_, report) = compile(source, InputKind::Markdown, &md_options()).expect("compile");
         assert!(report.missing_codepoints.contains(&0x10FFFF));
+    }
+
+    #[test]
+    fn block_glyphs_compile_via_the_supplementary_face() {
+        // The chart-bar vocabulary (U+2588 FULL BLOCK et al.) is not in the
+        // bundled Noto Sans faces but is supplied by the Block Elements
+        // supplementary face: compiling a document that uses it must not
+        // report missing codepoints.
+        let source = "<p>\u{2588}\u{2588}\u{2588}\u{2588}</p>";
+        let (package, report) = compile(source, InputKind::Html, &md_options()).expect("compile");
+        assert!(
+            !report.missing_codepoints.contains(&0x2588),
+            "U+2588 must resolve via the supplementary face"
+        );
+        // And the compiled package actually carries the glyph record.
+        let pkg = parse_package(&package).expect("parse");
+        let glyf = pkg.section(SectionKind::Glyph).expect("glyf section");
+        let section =
+            glyphcull_format::codec::glyph::GlyphSection::decode(glyf).expect("decode glyf");
+        assert!(
+            section
+                .atlases
+                .iter()
+                .flat_map(|a| &a.glyphs)
+                .any(|g| g.codepoint == 0x2588),
+            "U+2588 must be present in the compiled atlas"
+        );
     }
 
     #[test]

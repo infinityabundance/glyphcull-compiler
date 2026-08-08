@@ -6,6 +6,23 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added (supplementary glyph face — real glyph-drawn bar charts)
+
+- Atlas generation (`glyphcull-atlas`) supports an optional **supplementary
+  face**: a codepoint absent from the primary font falls back to it, using
+  the supplementary face's own outlines, advance, bearings, and units per
+  em (`build_atlas_with`; `build_atlas` is unchanged — the identity). The
+  pipeline (`glyphcull-pipeline`) passes the bundled **Block Elements** face
+  (`assets/fonts/DejaVuSans-Block.ttf`, a DejaVu Sans subset carrying
+  U+2580–U+259F and U+25A0; `assets/fonts/DejaVu-LICENSE.txt`), so `█`
+  (U+2588 FULL BLOCK) et al. compile without missing-codepoint warnings and
+  chart bars render as real filled rectangles — no format or runtime
+  changes. Deterministic and additive: atlases change only when a document
+  uses one of these codepoints (the Markdown golden stays byte-exact).
+  Tests: `glyphcull-atlas` `supplementary_face_supplies_missing_codepoints`
+  + `supplementary_never_overrides_the_primary_face`; `glyphcull-pipeline`
+  `block_glyphs_compile_via_the_supplementary_face`.
+
 ### Changed (glyphcull-format 0.1.3 — the readable self-validation error)
 
 - `glyphcull-format` 0.1.3 adds `Error::Validation { detail }` — the compiler's

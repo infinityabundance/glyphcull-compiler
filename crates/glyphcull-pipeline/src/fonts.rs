@@ -22,6 +22,13 @@ pub const FONT_BOLD: &[u8] = include_bytes!("../assets/fonts/NotoSans-Bold.ttf")
 pub const FONT_ITALIC: &[u8] = include_bytes!("../assets/fonts/NotoSans-Italic.ttf");
 /// The bundled Noto Sans Bold Italic face.
 pub const FONT_BOLD_ITALIC: &[u8] = include_bytes!("../assets/fonts/NotoSans-BoldItalic.ttf");
+/// The supplementary glyph face (DejaVu Sans, Block Elements subset — see
+/// `assets/fonts/DejaVu-LICENSE.txt`): shape glyphs such as U+2588 FULL BLOCK
+/// that the text faces do not carry. Atlas generation falls back to this face
+/// for codepoints the primary font lacks, so glyph-drawn bar charts render as
+/// real filled bars. Deterministic and additive: atlases change only when a
+/// document actually uses one of these codepoints.
+pub const FONT_SUPPLEMENTARY_BLOCKS: &[u8] = include_bytes!("../assets/fonts/DejaVuSans-Block.ttf");
 
 /// A font-family resolution failure.
 #[derive(Debug, Clone, PartialEq, Eq)]

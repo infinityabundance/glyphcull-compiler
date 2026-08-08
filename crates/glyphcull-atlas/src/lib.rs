@@ -104,8 +104,32 @@ pub struct AtlasResult {
 
 /// Build an MSDF atlas for `codepoints` (sorted, deduplicated) from raw font
 /// bytes. `font_id` is stamped onto the atlas (the pipeline assigns it).
+///
+/// Codepoints absent from the primary font are reported in `missing`; see
+/// [`build_atlas_with`] for the supplementary-glyph fallback.
 pub fn build_atlas(
     font_bytes: &[u8],
+    codepoints: &BTreeSet<u32>,
+    font_id: u32,
+    options: &AtlasOptions,
+) -> Result<AtlasResult, Error> {
+    build_atlas_with(font_bytes, None, codepoints, font_id, options)
+}
+
+/// Build an MSDF atlas with an optional **supplementary face**: a codepoint
+/// absent from the primary font falls back to the supplementary face, whose
+/// outline, advance, and bearings are used — scaled by the supplementary
+/// face's own units per em (faces may have different upms). Deterministic:
+/// the primary face wins for every codepoint it covers, and with no
+/// supplementary face this is exactly [`build_atlas`] (the identity).
+///
+/// Use case: shape glyphs (e.g. the U+2580–U+259F block elements for bar
+/// charts) that the bundled text faces do not carry are supplied by a tiny
+/// dedicated face, so charts render as real filled bars without changing
+/// the format or the runtimes.
+pub fn build_atlas_with(
+    font_bytes: &[u8],
+    supplementary: Option<&[u8]>,
     codepoints: &BTreeSet<u32>,
     font_id: u32,
     options: &AtlasOptions,
@@ -127,10 +151,8 @@ pub fn build_atlas(
 
     let face = FontFace::parse(font_bytes)?;
     let info = face.info();
-    let upm = f64::from(info.units_per_em);
+    let supplementary_face = supplementary.map(FontFace::parse).transpose()?;
     let texels_per_em_f = f64::from(options.texels_per_em) / 1024.0;
-    let scale = texels_per_em_f / upm;
-    let tolerance_units = options.cubic_tolerance_texels / scale;
 
     // 1. Collect per-glyph data in codepoint order (deterministic).
     struct GlyphWork {
@@ -145,13 +167,31 @@ pub fn build_atlas(
     let mut work: Vec<GlyphWork> = Vec::new();
     let mut missing: Vec<u32> = Vec::new();
     for (order, &cp) in codepoints.iter().enumerate() {
-        let Some(gid) = face.glyph_index(cp) else {
+        // Resolve the owning face: the primary font wins; a codepoint it
+        // lacks falls back to the supplementary face (if any).
+        let owner = if face.glyph_index(cp).is_some() {
+            &face
+        } else {
+            let Some(supp) = supplementary_face.as_ref() else {
+                missing.push(cp);
+                continue;
+            };
+            if supp.glyph_index(cp).is_none() {
+                missing.push(cp);
+                continue;
+            }
+            supp
+        };
+        let upm = f64::from(owner.info().units_per_em);
+        let scale = texels_per_em_f / upm;
+        let tolerance_units = options.cubic_tolerance_texels / scale;
+        let Some(gid) = owner.glyph_index(cp) else {
             missing.push(cp);
             continue;
         };
-        let advance = face.advance_units(gid).unwrap_or(0);
-        let lsb = face.lsb_units(gid).unwrap_or(0);
-        let outline: Option<GlyphOutline> = face.outline(gid, tolerance_units);
+        let advance = owner.advance_units(gid).unwrap_or(0);
+        let lsb = owner.lsb_units(gid).unwrap_or(0);
+        let outline: Option<GlyphOutline> = owner.outline(gid, tolerance_units);
         let (rendered, bounds, flags) = match &outline {
             Some(o) => {
                 let rendered = sdf::render_msdf(o, scale, f64::from(options.padding));
@@ -173,8 +213,8 @@ pub fn build_atlas(
         let bearing_y_em = bounds.map_or(0.0, |(_, max)| max.y / upm) as f32;
         work.push(GlyphWork {
             codepoint: cp,
-            advance_em: f32::from(advance) / info.units_per_em,
-            bearing_x_em: f32::from(lsb) / info.units_per_em,
+            advance_em: f32::from(advance) / upm as f32,
+            bearing_x_em: f32::from(lsb) / upm as f32,
             bearing_y_em,
             rendered,
             flags,
@@ -318,6 +358,8 @@ mod tests {
 
     /// The bundled Noto Sans Regular.
     const NOTO: &[u8] = include_bytes!("../assets/fonts/NotoSans-Regular.ttf");
+    /// The bundled Block Elements supplementary face (chart bars).
+    const BLOCKS: &[u8] = include_bytes!("../assets/fonts/DejaVuSans-Block.ttf");
 
     fn sample_codepoints() -> BTreeSet<u32> {
         "Hello, world! 123".chars().map(|c| c as u32).collect()
@@ -368,6 +410,45 @@ mod tests {
         for page in &atlas.pages {
             assert_eq!(page.len(), 1024 * 1024 * 4);
         }
+    }
+
+    #[test]
+    fn supplementary_face_supplies_missing_codepoints() {
+        // U+2588 FULL BLOCK is absent from Noto Sans: without the
+        // supplementary face it is reported missing; with it, the glyph is
+        // present with a real outline (a filled rectangle — box over 1 texel).
+        let cps: BTreeSet<u32> = [0x2588].into_iter().collect();
+        let plain = build_atlas(NOTO, &cps, 0, &AtlasOptions::default()).expect("plain");
+        assert!(plain.missing.contains(&0x2588));
+        assert_eq!(plain.atlas.glyphs.len(), 0);
+        let with = build_atlas_with(NOTO, Some(BLOCKS), &cps, 0, &AtlasOptions::default())
+            .expect("with supplementary");
+        assert!(with.missing.is_empty());
+        let rec = with
+            .atlas
+            .glyphs
+            .iter()
+            .find(|r| r.codepoint == 0x2588)
+            .expect("full-block record");
+        assert_eq!(rec.flags & glyph_flags::NO_OUTLINE, 0);
+        assert!(rec.box_w > 1 && rec.box_h > 1);
+        // The advance is positive (the block is a spacing glyph).
+        assert!(rec.advance > 0.5 && rec.advance <= 1.2);
+    }
+
+    #[test]
+    fn supplementary_never_overrides_the_primary_face() {
+        // 'H' exists in Noto Sans: the primary face must win — the record
+        // is the Noto outline, not the supplementary's (which does not even
+        // carry 'H'). Building with the supplementary is byte-identical to
+        // building without it for codepoints the primary covers.
+        let cps = sample_codepoints();
+        let plain = build_atlas(NOTO, &cps, 0, &AtlasOptions::default()).expect("plain");
+        let with = build_atlas_with(NOTO, Some(BLOCKS), &cps, 0, &AtlasOptions::default())
+            .expect("with supplementary");
+        assert!(plain.missing.is_empty());
+        assert!(with.missing.is_empty());
+        assert_eq!(with.atlas, plain.atlas);
     }
 
     #[test]
