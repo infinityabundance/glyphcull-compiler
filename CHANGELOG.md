@@ -14,6 +14,23 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   dry-run of `glyphcull-pipeline` (which verifies against the published format
   crate) is why this release precedes the pipeline's.
 
+### Fixed (inter-block whitespace no longer becomes phantom space paragraphs)
+
+- A whitespace-only text node at the top level of an HTML document (e.g. the
+  newline between `<body>` and the first heading, or between any two top-level
+  blocks) survived the whitespace cleanup — `cleanup_tree` collapsed inline
+  whitespace only inside block nodes, and the `Document` root is not a block.
+  The chunker then wrapped each surviving `Transparent(" ")` leaf in a
+  paragraph of a single space: phantom paragraphs that occupied layout height
+  (~24 px each) and became dead zones for text selection (a one-glyph line
+  collapses any selection to a point). The GN Mega Charts demo packages each
+  carried ~180 of them (16,626 chunks → 16,254 after the fix). `cleanup_tree`
+  now treats the `Document` root like a block, so top-level inter-block
+  whitespace is dropped while real bare text still survives (wrapped later).
+  Regression tests: `html.rs` `inter_block_whitespace_produces_no_phantom_paragraph`
+  and `top_level_bare_text_survives_as_content`. The Markdown golden fixture is
+  byte-exact (Markdown never produces top-level whitespace text nodes).
+
 ### Fixed (HTML table captions compile valid packages + readable self-validation)
 
 - The HTML parser mapped `figcaption` but not `<caption>` (the HTML table-caption

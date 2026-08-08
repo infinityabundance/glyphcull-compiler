@@ -301,12 +301,18 @@ pub fn allowed_child(parent: SemanticKind, child: SemanticKind) -> bool {
 /// and whitespace keeps the style ownership it had in the source (the leaf that
 /// contained it). Empty text leaves and empty inline containers are dropped;
 /// containers with children are never dropped. Deterministic and O(total nodes).
+///
+/// The `Document` root is treated like a block too: a whitespace-only text node
+/// between top-level blocks (e.g. the newline between `<body>` and `<h1>`) is
+/// inter-block whitespace — it must not become a phantom paragraph of one
+/// space, which would occupy layout height and become a dead zone for text
+/// selection. Real bare text at the top level survives (wrapped later).
 pub fn cleanup_tree(root: &mut SemanticNode) {
     fn walk(node: &mut SemanticNode) {
         for child in &mut node.children {
             walk(child);
         }
-        if node.kind.is_block() {
+        if node.kind.is_block() || node.kind == SemanticKind::Document {
             collapse_block_inline_ws(node);
         }
     }

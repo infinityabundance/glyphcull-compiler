@@ -459,6 +459,49 @@ mod tests {
     }
 
     #[test]
+    fn inter_block_whitespace_produces_no_phantom_paragraph() {
+        // Regression: the newlines around top-level blocks (here, the text
+        // between `<body>` and `<h1>`, and between blocks) are inter-block
+        // whitespace. They must not survive as whitespace-only transparent
+        // leaves — the chunker would wrap each one in a phantom paragraph of a
+        // single space (extra layout height, a dead zone for selection).
+        let out = parse_html(
+            "<html><head><title>T</title></head><body>\n\n<h1>T</h1>\n\n<p>x</p>\n\n</body></html>",
+        )
+        .expect("parse");
+        let children = &out.tree.children;
+        assert_eq!(children.len(), 2);
+        assert_eq!(children[0].kind, SemanticKind::Heading(1));
+        assert_eq!(children[1].kind, SemanticKind::Paragraph);
+        // The heading and paragraph are the only nodes: no transparent leaf
+        // remains, and the text content is exactly "T" / "x".
+        assert_eq!(children[0].to_string(), "T");
+        assert_eq!(children[1].to_string(), "x");
+        for child in children {
+            assert!(
+                !(child.kind == SemanticKind::Transparent
+                    && child.text.trim().is_empty()
+                    && child.children.is_empty()),
+                "phantom whitespace leaf survived: {child:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn top_level_bare_text_survives_as_content() {
+        // Bare text directly under <body> is real content: it must survive the
+        // document-root whitespace cleanup (the chunker wraps it in a
+        // paragraph), while the surrounding inter-block whitespace is dropped.
+        let out = parse_html("<html><body>\nHello\n<h1>T</h1>\n</body></html>").expect("parse");
+        let children = &out.tree.children;
+        assert_eq!(children.len(), 2);
+        assert_eq!(children[0].kind, SemanticKind::Transparent);
+        assert_eq!(children[0].to_string(), "Hello");
+        assert_eq!(children[1].kind, SemanticKind::Heading(1));
+        assert_eq!(children[1].to_string(), "T");
+    }
+
+    #[test]
     fn whitespace_keeps_style_ownership() {
         // The separator keeps the style of the text node that contained it:
         // here the space after `Hello` is inside the emphasis, so it renders
